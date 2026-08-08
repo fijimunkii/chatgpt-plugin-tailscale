@@ -1,0 +1,9 @@
+.git
+.github
+.env
+.env.*
+data
+bin
+coverage.out
+*.log
+.DS_Store

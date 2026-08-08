@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Test
+        run: go test ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: >-
+          go build -trimpath
+          -ldflags="-s -w
+          -X github.com/fijimunkii/chatgpt-plugin-tailscale/internal/version.Version=ci
+          -X github.com/fijimunkii/chatgpt-plugin-tailscale/internal/version.Commit=${GITHUB_SHA}
+          -X github.com/fijimunkii/chatgpt-plugin-tailscale/internal/version.BuildDate=ci"
+          ./cmd/gateway
+
+  container:
+    name: Container build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build image
+        run: >-
+          docker build
+          --build-arg VERSION=ci
+          --build-arg COMMIT=${GITHUB_SHA}
+          --build-arg BUILD_DATE=ci
+          --tag chatgpt-plugin-tailscale:ci
+          .

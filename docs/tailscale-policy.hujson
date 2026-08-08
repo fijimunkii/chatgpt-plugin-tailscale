@@ -1,0 +1,39 @@
+// Merge these entries into your existing tailnet policy. Do not overwrite
+// unrelated groups, grants, SSH rules, tests, or tag owners.
+{
+  "tagOwners": {
+    "tag:chatgpt-ssh": ["autogroup:admin"],
+    "tag:chatgpt-managed": ["autogroup:admin"],
+  },
+
+  "grants": [
+    {
+      // Network-level reachability: the gateway can reach only TCP/22 on
+      // explicitly managed targets.
+      "src": ["tag:chatgpt-ssh"],
+      "dst": ["tag:chatgpt-managed"],
+      "ip": ["tcp:22"],
+    },
+  ],
+
+  "ssh": [
+    {
+      // Tagged sources cannot use check mode. The dedicated non-root account
+      // and fixed gateway commands provide the host-level boundary.
+      "action": "accept",
+      "src": ["tag:chatgpt-ssh"],
+      "dst": ["tag:chatgpt-managed"],
+      "users": ["chatgpt"],
+    },
+  ],
+
+  // Optional policy tests. Replace the example node names with real tagged
+  // devices before enabling these assertions.
+  // "tests": [
+  //   {
+  //     "src": "tag:chatgpt-ssh",
+  //     "accept": ["managed-host:22"],
+  //     "deny": ["managed-host:80", "unmanaged-host:22"],
+  //   },
+  // ],
+}
