@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -18,8 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Check out repository
+      - name: Check out repository branch
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -27,16 +29,23 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      - name: Generate module checksums
+      - name: Generate module metadata
         run: go mod tidy
 
-      - name: Upload module checksums
-        uses: actions/upload-artifact@v4
-        with:
-          name: module-files
-          path: |
-            go.mod
-            go.sum
+      - name: Commit module metadata
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          if git diff --quiet -- go.mod go.sum; then
+            echo "Module metadata is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add go.mod go.sum
+          git commit -m "chore: commit module metadata"
+          git push origin "HEAD:${BRANCH}"
 
       - name: Check formatting
         run: test -z "$(gofmt -l .)"
