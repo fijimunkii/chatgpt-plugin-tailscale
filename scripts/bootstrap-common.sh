@@ -138,8 +138,8 @@ preflight() {
     ok "tunnel-client: $(tunnel-client --version 2>/dev/null || printf installed)"
   else
     warn "tunnel-client is not installed or not on PATH"
+    open_url "https://platform.openai.com/settings/organization/tunnels"
     info "download the supported build from OpenAI Platform → Organization → Tunnels"
     info "after approving the binary in macOS Privacy & Security, rerun ./bootstrap"
   fi
 }
-
