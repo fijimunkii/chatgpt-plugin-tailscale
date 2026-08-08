@@ -130,8 +130,7 @@ configure_gateway_env() {
 configure_tunnel() {
   section "OpenAI Secure MCP Tunnel"
   if ! command -v tunnel-client >/dev/null 2>&1; then
-    warn "skipping tunnel profile until tunnel-client is installed"
-    return 0
+    die "install tunnel-client, put it on PATH, and rerun ./bootstrap; completed policy, target, and gateway settings are preserved"
   fi
 
   [[ -f "$TUNNEL_ENV_FILE" ]] || : > "$TUNNEL_ENV_FILE"
@@ -191,4 +190,3 @@ configure_tunnel() {
     --health-listen-addr "$TUNNEL_HEALTH_ADDR"
   ok "created tunnel-client profile $PROFILE with health listener $TUNNEL_HEALTH_ADDR"
 }
-
