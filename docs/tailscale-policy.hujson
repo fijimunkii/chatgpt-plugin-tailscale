@@ -14,6 +14,15 @@
       "dst": ["tag:chatgpt-managed"],
       "ip": ["tcp:22"],
     },
+
+    // Optional human verification rule. Replace the login and uncomment this
+    // object only when your existing policy does not already let you test the
+    // tagged target from your own Tailscale identity.
+    // {
+    //   "src": ["YOUR-TAILSCALE-LOGIN@example.com"],
+    //   "dst": ["tag:chatgpt-managed"],
+    //   "ip": ["tcp:22"],
+    // },
   ],
 
   "ssh": [
@@ -25,6 +34,15 @@
       "dst": ["tag:chatgpt-managed"],
       "users": ["chatgpt"],
     },
+
+    // Optional matching human verification rule. Prefer check mode for a
+    // person. Replace the login and uncomment only when needed.
+    // {
+    //   "action": "check",
+    //   "src": ["YOUR-TAILSCALE-LOGIN@example.com"],
+    //   "dst": ["tag:chatgpt-managed"],
+    //   "users": ["chatgpt"],
+    // },
   ],
 
   // Optional policy tests. Replace the example node names with real tagged

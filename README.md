@@ -2,12 +2,73 @@
 
 [![CI](https://github.com/fijimunkii/chatgpt-plugin-tailscale/actions/workflows/ci.yml/badge.svg)](https://github.com/fijimunkii/chatgpt-plugin-tailscale/actions/workflows/ci.yml)
 
-A small, security-first MCP server that lets ChatGPT inspect explicitly allowed Linux hosts over [Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh). This is an independent community project and is not affiliated with or endorsed by Tailscale or OpenAI.
+A small, security-first MCP server that lets ChatGPT inspect explicitly allowed
+Linux hosts over [Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh).
+This is an independent community project and is not affiliated with or endorsed
+by Tailscale or OpenAI.
 
-The gateway embeds a Tailscale node with [`tsnet`](https://tailscale.com/docs/reference/tsnet-server-api), discovers peers from its local tailnet status, verifies SSH host keys distributed by Tailscale's control plane, and exposes only fixed read-only operations. It does **not** accept arbitrary commands and does **not** store SSH private keys.
+The gateway embeds a Tailscale node with
+[`tsnet`](https://tailscale.com/docs/reference/tsnet-server-api), discovers peers
+from its local tailnet status, verifies SSH host keys distributed by Tailscale's
+control plane, and exposes only fixed read-only operations. It does **not**
+accept arbitrary commands and does **not** store SSH private keys.
 
 > [!IMPORTANT]
-> This is an initial implementation intended for private testing. Remote hostnames, logs, process arguments, and command output are untrusted data and can contain prompt-injection text. Keep the host allowlist narrow and review the threat model before deployment.
+> This is an initial implementation intended for private testing. Remote
+> hostnames, logs, process arguments, and command output are untrusted data and
+> can contain prompt-injection text. Keep the host allowlist narrow and review
+> the threat model before deployment.
+
+## Quick start
+
+The supported setup path is the interactive, rerunnable bootstrap wizard:
+
+```bash
+./bootstrap
+```
+
+It walks through all five systems involved in the setup:
+
+1. Tailscale policy and tags.
+2. The dedicated `chatgpt` account and Tailscale SSH on a Linux target.
+3. The embedded gateway node and its tagged enrollment credential.
+4. OpenAI Secure MCP Tunnel, including the runtime key, tunnel ID, profile, and
+   the `8080`/`8081` port split.
+5. Starting the gateway and tunnel before scanning tools in ChatGPT.
+
+The wizard preserves existing configuration and is safe to run again. Use its
+read-only diagnostics at any time:
+
+```bash
+./bootstrap --check
+```
+
+To configure a target through an existing administrator SSH path:
+
+```bash
+./bootstrap --target ubuntu@server.example --with-journal
+```
+
+After bootstrap, launch both local processes with one command:
+
+```bash
+./scripts/run-local.sh
+# or: make up
+```
+
+The launcher reuses already healthy processes, waits for both readiness checks,
+and stops only processes it started. The local endpoints are:
+
+```text
+MCP gateway:       http://127.0.0.1:8080/mcp
+Gateway readiness: http://127.0.0.1:8080/readyz
+Tunnel readiness:  http://127.0.0.1:8081/readyz
+Tunnel admin UI:   http://127.0.0.1:8081/ui
+```
+
+See the complete [`bootstrap guide`](docs/bootstrap.md) for the exact admin-console
+steps, rerun guarantees, non-interactive mode, target-only usage, macOS
+Gatekeeper guidance, and troubleshooting.
 
 ## Included tools
 
@@ -21,114 +82,99 @@ The gateway embeds a Tailscale node with [`tsnet`](https://tailscale.com/docs/re
 | `service_logs` | Fixed, line-bounded `journalctl` read for an exact service allowlist. |
 | `process_list` | Fixed `ps` read; optional filtering happens locally in the gateway. |
 
-All tools are marked read-only, idempotent, and open-world in MCP metadata: they do not modify targets, but they do read external systems.
+All tools are marked read-only, idempotent, and open-world in MCP metadata: they
+do not modify targets, but they do read external systems.
 
 ## Security model
 
 The gateway applies several independent boundaries:
 
 1. Its own Tailscale identity should be `tag:chatgpt-ssh`.
-2. Tailscale policy grants that tag TCP/22 and Tailscale SSH access only to `tag:chatgpt-managed` targets.
-3. The gateway independently filters the netmap with `TS_ALLOWED_TAGS` and `TS_ALLOWED_HOSTS`.
+2. Tailscale policy grants that tag TCP/22 and Tailscale SSH access only to
+   `tag:chatgpt-managed` targets.
+3. The gateway independently filters the netmap with `TS_ALLOWED_TAGS` and
+   `TS_ALLOWED_HOSTS`.
 4. Shared nodes are excluded unless `TS_ALLOW_SHARED_NODES=true`.
-5. Execution requires an online, unexpired Linux peer with a Tailscale IP and control-plane-distributed SSH host keys.
+5. Execution requires an online, unexpired Linux peer with a Tailscale IP and
+   control-plane-distributed SSH host keys.
 6. The remote login is a dedicated non-root account, `chatgpt` by default.
-7. Commands are opaque values constructible only by the fixed command package. No MCP argument or generic string can reach the SSH runner as a command.
+7. Commands are opaque values constructible only by the fixed command package.
+   No MCP argument or generic string can reach the SSH runner as a command.
 8. Timeouts and a combined stdout/stderr byte limit bound each operation.
 9. Logs contain operation metadata but never command output or secrets.
 
-Read [`docs/threat-model.md`](docs/threat-model.md) before enabling access to sensitive hosts.
+The bootstrap keeps local credentials in gitignored `.env` and `.env.tunnel`
+files with mode `0600`. For a shared or production deployment, replace those
+files with an external secrets manager.
 
-## Prerequisites
+Read [`docs/threat-model.md`](docs/threat-model.md) before enabling access to
+sensitive hosts.
 
-- Go 1.26.5 or later.
-- A Tailscale tailnet.
-- Tailscale SSH enabled on each target: `sudo tailscale set --ssh`.
-- A dedicated `chatgpt` OS user on each target.
-- A tagged auth key, or a Tailscale OAuth client with `auth_keys` write scope and permission to advertise `tag:chatgpt-ssh`.
-- A tailnet policy granting the gateway only the required access.
+## Tailscale policy
 
-The target OS user needs enough local permission for the selected reads. `systemctl show`, `ps`, and `df` are usually available without elevation. Reading the system journal commonly requires membership in `systemd-journal` or `adm`; grant that only when service logs are required.
-
-## 1. Add the Tailscale policy
-
-Merge [`docs/tailscale-policy.hujson`](docs/tailscale-policy.hujson) into the existing tailnet policy. Do not replace unrelated grants or SSH rules blindly.
-
-The essential rules are:
+The bootstrap displays [`docs/tailscale-policy.hujson`](docs/tailscale-policy.hujson)
+and opens the Access Controls page. Merge the entries into the existing policy;
+do not replace unrelated rules:
 
 ```jsonc
 {
   "tagOwners": {
     "tag:chatgpt-ssh": ["autogroup:admin"],
-    "tag:chatgpt-managed": ["autogroup:admin"]
+    "tag:chatgpt-managed": ["autogroup:admin"],
   },
   "grants": [
     {
       "src": ["tag:chatgpt-ssh"],
       "dst": ["tag:chatgpt-managed"],
-      "ip": ["tcp:22"]
-    }
+      "ip": ["tcp:22"],
+    },
   ],
   "ssh": [
     {
       "action": "accept",
       "src": ["tag:chatgpt-ssh"],
       "dst": ["tag:chatgpt-managed"],
-      "users": ["chatgpt"]
-    }
-  ]
+      "users": ["chatgpt"],
+    },
+  ],
 }
 ```
 
-Tagged devices can use Tailscale SSH only to other tagged devices, so targets must actually carry `tag:chatgpt-managed`.
+Tagged devices can use Tailscale SSH only to other tagged devices, so targets
+must actually carry `tag:chatgpt-managed`. The full policy file includes
+commented human test rules for `ssh chatgpt+password@...` when your existing
+policy does not already allow that verification. Tailscale access rules are
+additive; review existing wildcard grants because the narrow rule does not
+subtract permissions granted elsewhere.
 
-## 2. Configure the gateway
+## Target preparation
 
-```bash
-cp config/example.env .env
-chmod 600 .env
-```
-
-Edit `.env` and provide either `TS_AUTHKEY` or `TS_CLIENT_SECRET`, but not both. When using `TS_CLIENT_SECRET`, the OAuth client needs `auth_keys` write scope and the advertised gateway tag. The default MCP listener is loopback-only and the default target selector is `tag:chatgpt-managed`.
-
-Service inspection is disabled until `SSH_ALLOWED_SERVICES` is populated with exact systemd unit names, for example:
-
-```dotenv
-SSH_ALLOWED_SERVICES=tailscaled.service,nginx.service
-```
-
-Load the environment and run:
+The target helper is independently usable and idempotent:
 
 ```bash
-set -a
-. ./.env
-set +a
-
-go run ./cmd/gateway
+sudo ./scripts/bootstrap-target.sh --with-journal
 ```
 
-The MCP endpoint is `http://127.0.0.1:8080/mcp`. Health checks are available at `/healthz` and `/readyz`.
+It creates the dedicated account only when missing, never sets a Linux password,
+optionally grants journal-read membership, and runs:
 
-## 3. Connect ChatGPT
-
-ChatGPT connects to remote MCP servers. For a gateway on a private network or developer machine, use OpenAI's Secure MCP Tunnel and point it at the loopback MCP endpoint. Then create a custom app in ChatGPT developer mode and scan the endpoint's tools.
-
-The loopback default intentionally permits the local tunnel or an authenticated reverse proxy to provide the outer authentication layer. If the MCP SDK rejects a tunneled request with an invalid Host-header error, set:
-
-```dotenv
-MCP_DISABLE_LOCALHOST_PROTECTION=true
+```bash
+sudo tailscale set --ssh
 ```
 
-Use that exception only when the listener remains private behind the trusted tunnel. The gateway also rejects requests carrying a browser `Origin` header.
+After applying `tag:chatgpt-managed`, test over the target's Tailscale IP:
 
-For a non-loopback listener, configuration fails closed unless either:
+```bash
+ssh chatgpt+password@100.x.y.z
+```
 
-- `MCP_BEARER_TOKEN` contains at least 24 characters, or
-- `MCP_ALLOW_UNAUTHENTICATED=true` is explicitly set.
-
-The second option is dangerous and should be reserved for a private listener behind an authenticating proxy. The built-in bearer check is useful for compatible MCP clients and edge testing; a public ChatGPT deployment should use the platform-supported authentication mechanism at the tunnel or reverse-proxy layer.
+Enter any non-empty value. The `+password` compatibility suffix still uses
+Tailscale identity rather than a Linux password.
 
 ## Configuration
+
+`./bootstrap` creates `.env` from `config/example.env` when needed and preserves
+an existing file.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -139,7 +185,7 @@ The second option is dangerous and should be reserved for a private listener beh
 | `MCP_MAX_REQUEST_BODY_BYTES` | `1048576` | Maximum MCP request body. |
 | `TS_HOSTNAME` | `chatgpt-ssh-gateway` | Embedded node hostname. |
 | `TS_STATE_DIR` | `./data/tsnet` | Persistent `tsnet` identity and state. |
-| `TS_AUTHKEY` | empty | Tailscale auth key. |
+| `TS_AUTHKEY` | empty | Tailscale auth key used for first enrollment. |
 | `TS_CLIENT_SECRET` | empty | Tailscale OAuth client secret used by `tsnet` to mint an auth key. |
 | `TS_ADVERTISE_TAGS` | `tag:chatgpt-ssh` | Tags requested by the gateway node. |
 | `TS_ALLOWED_TAGS` | `tag:chatgpt-managed` | Exact target tags admitted by the local allowlist. |
@@ -158,7 +204,45 @@ The second option is dangerous and should be reserved for a private listener beh
 | `SERVER_SHUTDOWN_TIMEOUT` | `10s` | Graceful HTTP shutdown deadline. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |
 
-At least one target tag or host selector is always required. The supplied default is intentionally narrow and does not mean that the corresponding Tailscale tag exists automatically. For `TS_ALLOWED_HOSTS`, prefer a stable node ID, full MagicDNS name, or Tailscale IP. A short selector matching multiple peers fails closed instead of admitting all matches.
+At least one target tag or host selector is always required. For
+`TS_ALLOWED_HOSTS`, prefer a stable node ID, full MagicDNS name, or Tailscale IP.
+A short selector matching multiple peers fails closed instead of admitting all
+matches.
+
+Service inspection is limited to exact unit names:
+
+```dotenv
+SSH_ALLOWED_SERVICES=tailscaled.service,nginx.service
+```
+
+## Manual gateway run
+
+The bootstrap launcher is recommended. To run only the gateway manually:
+
+```bash
+set -a
+. ./.env
+set +a
+
+go run ./cmd/gateway
+```
+
+The MCP endpoint is `http://127.0.0.1:8080/mcp`. Health checks are available at
+`/healthz` and `/readyz`.
+
+The loopback default intentionally permits OpenAI Secure MCP Tunnel or an
+authenticated reverse proxy to provide the outer authentication layer. If the
+MCP SDK rejects a trusted tunneled request with an invalid Host-header error,
+`MCP_DISABLE_LOCALHOST_PROTECTION=true` is available, but use that exception
+only while the listener remains private.
+
+For a non-loopback listener, configuration fails closed unless either:
+
+- `MCP_BEARER_TOKEN` contains at least 24 characters, or
+- `MCP_ALLOW_UNAUTHENTICATED=true` is explicitly set.
+
+The second option is dangerous and should be reserved for a private listener
+behind an authenticating proxy.
 
 ## Docker
 
@@ -179,7 +263,9 @@ docker run --rm \
   chatgpt-plugin-tailscale
 ```
 
-When publishing a container port instead, bind it to host loopback and configure a bearer token because the process itself listens on `0.0.0.0` inside the container:
+When publishing a container port instead, bind it to host loopback and configure
+a bearer token because the process itself listens on `0.0.0.0` inside the
+container:
 
 ```bash
 docker run --rm \
@@ -198,7 +284,21 @@ docker run --rm \
 make check
 ```
 
-The test suite covers configuration fail-closed behavior, target filtering and ambiguous allowlist rejection, opaque command construction, local process filtering, bearer authentication, strict host-key verification, and combined output limits.
+`make check` validates the bootstrap scripts, runs their idempotency tests,
+checks Go formatting, runs the Go test suite and vet, and builds the gateway.
+
+Useful targets:
+
+```bash
+make bootstrap        # interactive setup
+make bootstrap-check  # read-only diagnostics
+make up               # gateway + tunnel-client
+```
+
+The test suite covers configuration fail-closed behavior, target filtering and
+ambiguous allowlist rejection, opaque command construction, local process
+filtering, bearer authentication, strict host-key verification, combined output
+limits, bootstrap reruns, target checks, and tunnel profile reuse.
 
 ## Current limitations
 
@@ -207,10 +307,14 @@ The test suite covers configuration fail-closed behavior, target filtering and a
 - Tailscale SSH is required. Traditional SSH keys are not supported.
 - Systemd is required for service status and service logs.
 - One embedded Tailscale identity and one tailnet per process.
-- No built-in OAuth authorization server; use Secure MCP Tunnel or an authenticating reverse proxy.
-- The Tailscale Admin API is not needed for v0.1. Inventory comes from the embedded node's netmap/LocalAPI, avoiding broad administrative credentials.
+- Tailnet policy and machine-tag changes remain explicit admin-console steps.
+- No built-in OAuth authorization server; use Secure MCP Tunnel or an
+  authenticating reverse proxy.
+- The Tailscale Admin API is not needed for v0.1. Inventory comes from the
+  embedded node's netmap/LocalAPI, avoiding broad administrative credentials.
 
-See [`docs/architecture.md`](docs/architecture.md) for component details and the planned path to separately approved write actions.
+See [`docs/architecture.md`](docs/architecture.md) for component details and the
+planned path to separately approved write actions.
 
 ## License
 
