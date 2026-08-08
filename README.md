@@ -3,9 +3,11 @@
 [![CI](https://github.com/fijimunkii/chatgpt-plugin-tailscale/actions/workflows/ci.yml/badge.svg)](https://github.com/fijimunkii/chatgpt-plugin-tailscale/actions/workflows/ci.yml)
 
 A small, security-first MCP server that lets ChatGPT inspect explicitly allowed
-Linux hosts over [Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh).
-This is an independent community project and is not affiliated with or endorsed
-by Tailscale or OpenAI.
+private hosts. The implemented v0.1 path supports Linux targets over
+[Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh); the committed
+roadmap extends the same typed tools to Windows and macOS through an open-source
+host agent. This is an independent community project and is not affiliated with
+or endorsed by Tailscale or OpenAI.
 
 The gateway embeds a Tailscale node with
 [`tsnet`](https://tailscale.com/docs/reference/tsnet-server-api), discovers peers
@@ -27,7 +29,7 @@ The supported setup path is the interactive, rerunnable bootstrap wizard:
 ./bootstrap
 ```
 
-It walks through all five systems involved in the setup:
+It walks through all five systems involved in the current Linux setup:
 
 1. Tailscale policy and tags.
 2. The dedicated `chatgpt` account and Tailscale SSH on a Linux target.
@@ -70,9 +72,45 @@ See the complete [`bootstrap guide`](docs/bootstrap.md) for the exact admin-cons
 steps, rerun guarantees, non-interactive mode, target-only usage, macOS
 Gatekeeper guidance, and troubleshooting.
 
+## Cross-platform and hosted direction
+
+Tailscale SSH can be used *from* Windows, but its server component does not run
+on Windows. The planned Windows path therefore does not ask users to configure
+a Windows password, reusable SSH key, WinRM credential, or unrestricted
+PowerShell endpoint.
+
+Instead, a small open-source host agent will:
+
+- run as a Windows Service;
+- use the Windows machine's existing Tailscale connection;
+- initiate an outbound session to the private connector;
+- authenticate with both Tailscale source identity and mTLS;
+- implement native typed reads for system facts, disks, processes, services,
+  and Windows Event Logs;
+- return the same normalized MCP contracts as Linux.
+
+The same agent model will support macOS and optionally Linux. Agentless
+Tailscale SSH remains the zero-install Linux path. The gateway/edge connector
+itself is planned for macOS, Linux, and Windows.
+
+A future hosted edition will provide a public OAuth-authenticated MCP endpoint
+and a published ChatGPT/Codex plugin. The customer connector will keep the
+Tailscale identity and local policy at the edge and connect outbound to the
+hosted relay; the cloud will not directly dial the tailnet.
+
+Detailed planning documents:
+
+- [`Product roadmap`](docs/roadmap.md)
+- [`Cross-platform architecture and hosted product spec`](docs/cross-platform-spec.md)
+- [`Normalized MCP tool contracts v1`](docs/tool-contracts-v1.md)
+- [`Implemented v0.1 architecture`](docs/architecture.md)
+
+The highest-priority next implementation milestone is a Windows read-only host
+agent tested beside the current Linux target.
+
 ## Included tools
 
-| Tool | Behavior |
+| Tool | Current v0.1 behavior |
 | --- | --- |
 | `list_hosts` | Lists only peers admitted by `TS_ALLOWED_TAGS` or `TS_ALLOWED_HOSTS`. |
 | `inspect_host` | Returns tailnet metadata and readiness for one allowed peer. |
@@ -82,12 +120,13 @@ Gatekeeper guidance, and troubleshooting.
 | `service_logs` | Fixed, line-bounded `journalctl` read for an exact service allowlist. |
 | `process_list` | Fixed `ps` read; optional filtering happens locally in the gateway. |
 
-All tools are marked read-only, idempotent, and open-world in MCP metadata: they
-do not modify targets, but they do read external systems.
+All tools are marked read-only and idempotent. They do not modify targets. The
+cross-platform contract preserves these tool names while normalizing their
+structured outputs across operating systems.
 
 ## Security model
 
-The gateway applies several independent boundaries:
+The implemented gateway applies several independent boundaries:
 
 1. Its own Tailscale identity should be `tag:chatgpt-ssh`.
 2. Tailscale policy grants that tag TCP/22 and Tailscale SSH access only to
@@ -102,6 +141,10 @@ The gateway applies several independent boundaries:
    No MCP argument or generic string can reach the SSH runner as a command.
 8. Timeouts and a combined stdout/stderr byte limit bound each operation.
 9. Logs contain operation metadata but never command output or secrets.
+
+The planned host-agent path adds a second authenticated transport rather than
+weakening these controls: agents dial outbound, Tailscale identity and mTLS are
+both required, and local policy remains authoritative.
 
 The bootstrap keeps local credentials in gitignored `.env` and `.env.tunnel`
 files with mode `0600`. For a shared or production deployment, replace those
@@ -147,9 +190,13 @@ policy does not already allow that verification. Tailscale access rules are
 additive; review existing wildcard grants because the narrow rule does not
 subtract permissions granted elsewhere.
 
+The future host-agent session adds a separately scoped reverse-direction grant
+from managed targets to the connector's private agent-session port. It does not
+replace the current TCP/22 rule for Linux.
+
 ## Target preparation
 
-The target helper is independently usable and idempotent:
+The current Linux target helper is independently usable and idempotent:
 
 ```bash
 sudo ./scripts/bootstrap-target.sh --with-journal
@@ -170,6 +217,9 @@ ssh chatgpt+password@100.x.y.z
 
 Enter any non-empty value. The `+password` compatibility suffix still uses
 Tailscale identity rather than a Linux password.
+
+Windows and macOS target setup described in the roadmap is not implemented in
+v0.1 yet.
 
 ## Configuration
 
@@ -303,18 +353,21 @@ limits, bootstrap reruns, target checks, and tunnel profile reuse.
 ## Current limitations
 
 - Read-only inspection only; no arbitrary command execution.
-- Linux targets and Linux inspection commands only.
-- Tailscale SSH is required. Traditional SSH keys are not supported.
-- Systemd is required for service status and service logs.
+- The implemented target adapter is Linux-only today.
+- Tailscale SSH is required for the implemented target path.
+- Systemd is required for current service status and service logs.
 - One embedded Tailscale identity and one tailnet per process.
 - Tailnet policy and machine-tag changes remain explicit admin-console steps.
+- The current bootstrap source of truth is Bash; a cross-platform Go setup CLI
+  is planned.
 - No built-in OAuth authorization server; use Secure MCP Tunnel or an
-  authenticating reverse proxy.
+  authenticating reverse proxy for DIY use.
 - The Tailscale Admin API is not needed for v0.1. Inventory comes from the
   embedded node's netmap/LocalAPI, avoiding broad administrative credentials.
 
-See [`docs/architecture.md`](docs/architecture.md) for component details and the
-planned path to separately approved write actions.
+See [`docs/architecture.md`](docs/architecture.md) for the implemented request
+path and [`docs/cross-platform-spec.md`](docs/cross-platform-spec.md) for the
+planned cross-platform and hosted architecture.
 
 ## License
 
