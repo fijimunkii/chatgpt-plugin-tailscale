@@ -24,8 +24,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 
 FROM gcr.io/distroless/static-debian12:nonroot
 
-LABEL org.opencontainers.image.title="ChatGPT Tailscale SSH Inspector" \
-      org.opencontainers.image.description="Read-only MCP gateway for inspecting allowlisted Linux hosts over Tailscale SSH" \
+LABEL org.opencontainers.image.title="TetherBound Community / ChatGPT Plugin for Tailscale" \
+      org.opencontainers.image.description="Self-hosted MCP gateway for bounded or operator access to admitted Linux hosts over Tailscale SSH" \
+      org.opencontainers.image.url="https://tetherbound.dev" \
       org.opencontainers.image.source="https://github.com/fijimunkii/chatgpt-plugin-tailscale" \
       org.opencontainers.image.licenses="MIT"
 
