@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TetherBound — Give AI access. Keep it bounded.</title>
+  <meta name="description" content="TetherBound gives AI assistants controlled access to private infrastructure without public ports, shared SSH keys, or unrestricted shell access.">
+  <meta name="theme-color" content="#111814">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="TetherBound — Give AI access. Keep it bounded.">
+  <meta property="og:description" content="Controlled, auditable AI access to private infrastructure. Open-source Community edition available now; hosted Cloud is in development.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="./index.html" aria-label="TetherBound home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>TetherBound</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="./security.html">Security</a>
+        <a href="./community.html">Community</a>
+        <a href="./cloud.html">Cloud</a>
+        <a href="./docs.html">Docs</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="button small" href="https://github.com/fijimunkii/chatgpt-plugin-tailscale">GitHub</a>
+        <a class="button primary small" href="./cloud.html#early-access">Early access</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="eyebrow">Private infrastructure access for AI</div>
+        <h1>Give AI access.<br>Keep it bounded.</h1>
+        <p class="lede">
+          TetherBound connects AI assistants to the systems you already run while keeping access narrow, explicit, and auditable. No public SSH ports. No shared private keys. No unrestricted shell.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="./community.html">Try Community</a>
+          <a class="button" href="./cloud.html#early-access">Join Cloud early access</a>
+        </div>
+        <div class="trust-row" aria-label="Key properties">
+          <span>Open-source edge</span>
+          <span>Local policy stays authoritative</span>
+          <span>Typed, bounded tools</span>
+          <span>Linux today; Windows and macOS planned</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="container">
+      <section class="panel architecture" id="how-it-works" aria-labelledby="architecture-title">
+        <div class="architecture-grid">
+          <div class="node">
+            <div class="node-label">AI client</div>
+            <h3>ChatGPT / Codex</h3>
+            <p>Asks for a specific, typed operation such as disk usage, service state, or bounded logs.</p>
+          </div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="node dark">
+            <div class="node-label">Control boundary</div>
+            <h3 id="architecture-title">TetherBound</h3>
+            <p>Resolves identity, enforces host and tool policy, bounds output, and records audit metadata.</p>
+          </div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="node">
+            <div class="node-label">Your private infrastructure</div>
+            <div class="platforms">
+              <div class="platform"><span>Linux</span><span class="badge">Available</span></div>
+              <div class="platform"><span>Windows</span><span class="badge planned">Planned</span></div>
+              <div class="platform"><span>macOS</span><span class="badge planned">Planned</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-head">
+          <div class="eyebrow">Why TetherBound</div>
+          <h2>Access without handing over the keys.</h2>
+          <p>Most remote-management bridges begin with credentials and end with a shell. TetherBound starts with the operation you actually want to allow.</p>
+        </div>
+        <div class="grid-3">
+          <article class="card">
+            <div class="number">01</div>
+            <h3>No unrestricted shell</h3>
+            <p>The assistant cannot turn conversation text into arbitrary commands. The edge exposes fixed, typed capabilities with explicit inputs and bounds.</p>
+          </article>
+          <article class="card">
+            <div class="number">02</div>
+            <h3>Private by default</h3>
+            <p>The current Community path uses Tailscale and an outbound MCP tunnel. Your servers do not need a new public management port.</p>
+          </article>
+          <article class="card">
+            <div class="number">03</div>
+            <h3>Two-sided policy</h3>
+            <p>Network policy and TetherBound's own local allowlists both have to permit the request. Future cloud policy can narrow local permissions, never widen them.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section compact" id="capabilities">
+      <div class="container">
+        <div class="section-head">
+          <div class="eyebrow">Useful on day one</div>
+          <h2>Ask questions about real machines.</h2>
+          <p>The first release is intentionally read-only. It is designed for diagnosis, inventory, and understanding before remediation.</p>
+        </div>
+        <div class="feature-list">
+          <div class="feature"><h3>Fleet visibility</h3><p>List only the hosts you have explicitly admitted and inspect their connectivity and capabilities.</p></div>
+          <div class="feature"><h3>System health</h3><p>Summarize uptime, memory, kernel or OS details, and other bounded host facts.</p></div>
+          <div class="feature"><h3>Disk usage</h3><p>See filesystem or volume capacity without granting file-browser access.</p></div>
+          <div class="feature"><h3>Processes</h3><p>Inspect a bounded process snapshot. Filters are handled as data, not interpolated into a shell.</p></div>
+          <div class="feature"><h3>Services and logs</h3><p>Check only exact allowlisted services and bounded log sources instead of handing the assistant broad operating-system privileges.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="editions">
+      <div class="container">
+        <div class="section-head">
+          <div class="eyebrow">Open source + hosted</div>
+          <h2>Choose how much you want us to run.</h2>
+          <p>The open edge stays useful on its own. Cloud is planned to remove the platform plumbing without taking custody of your tailnet identity.</p>
+        </div>
+        <div class="split">
+          <article class="panel edition">
+            <span class="badge">Available now</span>
+            <h3>Community</h3>
+            <p>For self-hosters, developers, and teams that want the whole security boundary in their own environment.</p>
+            <ul>
+              <li>Open-source gateway</li>
+              <li>Tailscale SSH for Linux</li>
+              <li>Seven read-only MCP tools</li>
+              <li>Idempotent bootstrap</li>
+              <li>OpenAI Secure MCP Tunnel path</li>
+              <li>No TetherBound account required</li>
+            </ul>
+            <a class="button primary" href="./community.html">Explore Community</a>
+          </article>
+          <article class="panel edition">
+            <span class="badge cloud">In development</span>
+            <h3>Cloud</h3>
+            <p>For people who want the same bounded edge model without assembling MCP tunnels, runtime keys, and connector lifecycle by hand.</p>
+            <ul>
+              <li>Hosted authenticated MCP endpoint</li>
+              <li>Outbound customer edge connector</li>
+              <li>Central policy and audit metadata</li>
+              <li>Connector and host health</li>
+              <li>Windows and macOS agent path</li>
+              <li>Approval workflows for future actions</li>
+            </ul>
+            <a class="button accent" href="./cloud.html#early-access">Join early access</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section compact">
+      <div class="container">
+        <div class="section-head">
+          <div class="eyebrow">Current status</div>
+          <h2>Clear about what exists and what comes next.</h2>
+        </div>
+        <div class="panel" style="padding: 10px 28px 24px; overflow:auto;">
+          <table class="status-table">
+            <thead><tr><th>Capability</th><th>Status</th><th>Path</th></tr></thead>
+            <tbody>
+              <tr><td>Linux read-only inspection</td><td><span class="badge">Working</span></td><td>Tailscale SSH + local gateway</td></tr>
+              <tr><td>ChatGPT private connection</td><td><span class="badge">Working</span></td><td>OpenAI Secure MCP Tunnel</td></tr>
+              <tr><td>Windows inspection</td><td><span class="badge planned">Roadmap</span></td><td>Native TetherBound Agent</td></tr>
+              <tr><td>macOS inspection</td><td><span class="badge planned">Roadmap</span></td><td>Native TetherBound Agent</td></tr>
+              <tr><td>TetherBound Cloud</td><td><span class="badge cloud">Validation</span></td><td>Hosted MCP + outbound edge relay</td></tr>
+              <tr><td>Write / remediation actions</td><td><span class="badge planned">Later</span></td><td>Prepare → approve → execute only</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="callout">
+          <h2>What would you let an AI inspect?</h2>
+          <p>We are validating TetherBound with people who run private Linux, Windows, and macOS systems. Tell us what you operate, what you would ask, and what security boundary you would need before trusting it.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="./cloud.html#early-access">Join the validation group</a>
+            <a class="button" href="./security.html">Read the security model</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-row">
+      <div>© TetherBound. Independent open-source project; not affiliated with Tailscale or OpenAI.</div>
+      <div class="footer-links">
+        <a href="./security.html">Security</a>
+        <a href="./docs.html">Docs</a>
+        <a href="./community.html">Community</a>
+        <a href="https://github.com/fijimunkii/chatgpt-plugin-tailscale">GitHub</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
