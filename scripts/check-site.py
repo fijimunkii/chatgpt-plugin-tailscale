@@ -19,47 +19,33 @@ class PageParser(HTMLParser):
         self.ids: set[str] = set()
         self.has_title = False
         self.has_description = False
+        self._in_title = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        values = {k: v for k, v in attrs}
-        if value := values.get("id"):
-            self.ids.add(value)
-        if tag == "a" and (href := values.get("href")):
-            self.links.append(href)
-        if tag == "meta" and values.get("name") == "description" and values.get("content"):
-            self.has_description = True
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self.handle_starttag(tag, attrs)
-
-    def handle_data(self, data: str) -> None:
-        # HTMLParser doesn't expose title text separately. Track whether non-empty
-        # text is seen while the caller marks title context.
-        if getattr(self, "_in_title", False) and data.strip():
-            self.has_title = True
-
-    def handle_starttag_with_title(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        pass
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "title":
-            self._in_title = False
-
-    def unknown_decl(self, data: str) -> None:
-        return
-
-    # Override feed hooks by intercepting title start tags while preserving the
-    # normal attribute collection above.
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:  # type: ignore[override]
-        values = {k: v for k, v in attrs}
+        values = {key: value for key, value in attrs}
         if tag == "title":
             self._in_title = True
         if value := values.get("id"):
             self.ids.add(value)
         if tag == "a" and (href := values.get("href")):
             self.links.append(href)
-        if tag == "meta" and values.get("name") == "description" and values.get("content"):
+        if (
+            tag == "meta"
+            and values.get("name") == "description"
+            and values.get("content")
+        ):
             self.has_description = True
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+
+    def handle_data(self, data: str) -> None:
+        if self._in_title and data.strip():
+            self.has_title = True
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "title":
+            self._in_title = False
 
 
 def parse(path: Path) -> PageParser:
@@ -78,7 +64,7 @@ def main() -> int:
     parsed = {page.resolve(): parse(page) for page in pages}
     errors: list[str] = []
 
-    for page, parser in parsed.items():
+    for page, parser in list(parsed.items()):
         rel = page.relative_to(ROOT)
         if not parser.has_title:
             errors.append(f"{rel}: missing non-empty <title>")
@@ -94,10 +80,11 @@ def main() -> int:
             if parts.scheme or parts.netloc:
                 continue
 
-            if parts.path:
-                target = (page.parent / unquote(parts.path)).resolve()
-            else:
-                target = page
+            target = (
+                (page.parent / unquote(parts.path)).resolve()
+                if parts.path
+                else page
+            )
 
             try:
                 target.relative_to(ROOT)
@@ -106,7 +93,10 @@ def main() -> int:
                 continue
 
             if not target.exists():
-                errors.append(f"{rel}: missing local target for {href}: {target.relative_to(ROOT)}")
+                errors.append(
+                    f"{rel}: missing local target for {href}: "
+                    f"{target.relative_to(ROOT)}"
+                )
                 continue
 
             if parts.fragment and target.suffix.lower() == ".html":
@@ -117,7 +107,8 @@ def main() -> int:
                 fragment = unquote(parts.fragment)
                 if fragment not in target_parser.ids:
                     errors.append(
-                        f"{rel}: missing fragment #{fragment} in {target.relative_to(ROOT)}"
+                        f"{rel}: missing fragment #{fragment} in "
+                        f"{target.relative_to(ROOT)}"
                     )
 
     if errors:
