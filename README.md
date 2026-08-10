@@ -1,25 +1,67 @@
-# ChatGPT Tailscale SSH Inspector
+# TetherBound
+
+**Give AI access. Keep it bounded.**
 
 [![CI](https://github.com/fijimunkii/chatgpt-plugin-tailscale/actions/workflows/ci.yml/badge.svg)](https://github.com/fijimunkii/chatgpt-plugin-tailscale/actions/workflows/ci.yml)
 
-A small, security-first MCP server that lets ChatGPT inspect explicitly allowed
-private hosts. The implemented v0.1 path supports Linux targets over
+TetherBound is a security-first MCP gateway for giving AI assistants controlled
+access to explicitly allowed private infrastructure. The implemented v0.1 path
+supports Linux targets over
 [Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh); the committed
 roadmap extends the same typed tools to Windows and macOS through an open-source
-host agent. This is an independent community project and is not affiliated with
-or endorsed by Tailscale or OpenAI.
+host agent.
 
-The gateway embeds a Tailscale node with
+The product boundary is intentionally narrower than “SSH from ChatGPT.” The
+assistant receives fixed, bounded capabilities rather than an unrestricted
+remote shell. The current gateway embeds a Tailscale node with
 [`tsnet`](https://tailscale.com/docs/reference/tsnet-server-api), discovers peers
 from its local tailnet status, verifies SSH host keys distributed by Tailscale's
 control plane, and exposes only fixed read-only operations. It does **not**
 accept arbitrary commands and does **not** store SSH private keys.
+
+TetherBound is an independent community project and is not affiliated with or
+endorsed by Tailscale or OpenAI.
 
 > [!IMPORTANT]
 > This is an initial implementation intended for private testing. Remote
 > hostnames, logs, process arguments, and command output are untrusted data and
 > can contain prompt-injection text. Keep the host allowlist narrow and review
 > the threat model before deployment.
+
+## Product validation site
+
+The repository now includes a dependency-free static validation site in
+[`site/`](site/). It explains the product in non-implementation language,
+separates shipped features from roadmap concepts, and collects structured Cloud
+interest without asking for infrastructure secrets.
+
+Preview it locally:
+
+```bash
+python3 -m http.server 4173 --directory site
+```
+
+Then open `http://127.0.0.1:4173/`.
+
+Pages:
+
+- [`Landing page`](site/index.html) — **Give AI access. Keep it bounded.**
+- [`Security`](site/security.html) — customer-facing trust boundary.
+- [`Community`](site/community.html) — current open-source / DIY edition.
+- [`Cloud`](site/cloud.html) — proposed hosted edition and validation CTA.
+- [`Docs portal`](site/docs.html) — working implementation and roadmap docs.
+
+Product-learning documents:
+
+- [`Product positioning`](docs/product-positioning.md)
+- [`Validation plan`](docs/validation-plan.md)
+- [`Product roadmap`](docs/roadmap.md)
+- [`Cross-platform architecture and hosted product spec`](docs/cross-platform-spec.md)
+- [`Normalized MCP tool contracts v1`](docs/tool-contracts-v1.md)
+
+The runtime repository/binary/tag names are intentionally not migrated in this
+branding change. Those identifiers should move only through a dedicated
+backward-compatible migration.
 
 ## Quick start
 
@@ -79,7 +121,7 @@ on Windows. The planned Windows path therefore does not ask users to configure
 a Windows password, reusable SSH key, WinRM credential, or unrestricted
 PowerShell endpoint.
 
-Instead, a small open-source host agent will:
+Instead, a small open-source TetherBound Agent will:
 
 - run as a Windows Service;
 - use the Windows machine's existing Tailscale connection;
@@ -90,20 +132,14 @@ Instead, a small open-source host agent will:
 - return the same normalized MCP contracts as Linux.
 
 The same agent model will support macOS and optionally Linux. Agentless
-Tailscale SSH remains the zero-install Linux path. The gateway/edge connector
+Tailscale SSH remains the zero-install Linux path. The gateway/TetherBound Edge
 itself is planned for macOS, Linux, and Windows.
 
-A future hosted edition will provide a public OAuth-authenticated MCP endpoint
-and a published ChatGPT/Codex plugin. The customer connector will keep the
-Tailscale identity and local policy at the edge and connect outbound to the
-hosted relay; the cloud will not directly dial the tailnet.
-
-Detailed planning documents:
-
-- [`Product roadmap`](docs/roadmap.md)
-- [`Cross-platform architecture and hosted product spec`](docs/cross-platform-spec.md)
-- [`Normalized MCP tool contracts v1`](docs/tool-contracts-v1.md)
-- [`Implemented v0.1 architecture`](docs/architecture.md)
+The proposed TetherBound Cloud edition provides a hosted authenticated MCP
+endpoint and outbound customer edge relay. The customer connector keeps the
+Tailscale identity and local policy at the edge; the cloud does not directly
+dial the tailnet. Cloud is currently a product-validation concept, not a shipped
+service.
 
 The highest-priority next implementation milestone is a Windows read-only host
 agent tested beside the current Linux target.
@@ -150,8 +186,8 @@ The bootstrap keeps local credentials in gitignored `.env` and `.env.tunnel`
 files with mode `0600`. For a shared or production deployment, replace those
 files with an external secrets manager.
 
-Read [`docs/threat-model.md`](docs/threat-model.md) before enabling access to
-sensitive hosts.
+Read [`docs/threat-model.md`](docs/threat-model.md) and the customer-facing
+[`Security page`](site/security.html) before enabling access to sensitive hosts.
 
 ## Tailscale policy
 
