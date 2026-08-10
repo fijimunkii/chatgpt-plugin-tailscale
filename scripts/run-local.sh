@@ -71,7 +71,7 @@ wait_for_url() {
   return 1
 }
 
-printf 'Starting ChatGPT Tailscale SSH Inspector\n'
+printf 'Starting TetherBound Community / ChatGPT Tailscale MCP gateway\n'
 
 if curl -fsS --max-time 2 "$GATEWAY_BASE/healthz" >/dev/null 2>&1; then
   if $operator_requested; then
@@ -117,7 +117,7 @@ ok "Tunnel status: $TUNNEL_BASE/ui"
 if $operator_requested; then
   ok "Operator mode: active for the locally configured lease; arbitrary shell runs as ${SSH_USER:-chatgpt} without TetherBound-added elevation"
 fi
-info "In ChatGPT, select the tunnel and rescan tools."
+info "In ChatGPT, open your custom MCP app and rescan/refresh its tools if needed."
 info "Press Ctrl-C to stop only the processes started by this command."
 
 if [[ -z "$GATEWAY_PID" && -z "$TUNNEL_PID" ]]; then
