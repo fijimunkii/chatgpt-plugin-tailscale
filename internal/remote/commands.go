@@ -28,14 +28,17 @@ cat /proc/sys/kernel/random/boot_id
 `
 
 const (
-	diskUsageShell          = "LC_ALL=C df -P -B1 -x tmpfs -x devtmpfs"
-	absoluteMaxLogLines     = 1000
-	absoluteMaxProcessLines = 2000
+	diskUsageShell           = "LC_ALL=C df -P -B1 -x tmpfs -x devtmpfs"
+	absoluteMaxLogLines      = 1000
+	absoluteMaxProcessLines  = 2000
+	maxOperatorCommandBytes  = 64 << 10
+	maxOperatorWorkingDirLen = 4096
 )
 
-// Command is an opaque, prebuilt remote inspection command. Its fields are
-// intentionally private so packages outside remote cannot introduce arbitrary
-// shell text into the SSH runner.
+// Command is an opaque remote command. Most constructors in this package build
+// fixed read-only operations. OperatorCommand is the deliberate exception: it
+// accepts caller-supplied shell text only after the MCP layer has verified that
+// locally enabled Operator mode is still inside its lease.
 type Command struct {
 	operation string
 	shell     string
@@ -48,8 +51,8 @@ func newCommand(operation, shell string) Command {
 // Operation returns the stable audit name for the command.
 func (c Command) Operation() string { return c.operation }
 
-// Shell returns the compiled-in shell command. Only the SSH runner should use
-// this value.
+// Shell returns the remote shell command. Only the SSH runner should use this
+// value.
 func (c Command) Shell() string { return c.shell }
 
 // Valid reports whether c was constructed as a usable command.
@@ -163,6 +166,35 @@ func ProcessListCommand(remoteLimit int) Command {
 		"process_list",
 		"LC_ALL=C ps -eo pid=,ppid=,user=,stat=,pcpu=,pmem=,etimes=,comm=,args= --sort=-pcpu | head -n "+strconv.Itoa(remoteLimit),
 	)
+}
+
+// OperatorCommand deliberately creates an arbitrary POSIX shell operation for
+// locally enabled Operator mode. The command is interpreted by /bin/sh on the
+// selected host as the configured SSH user. It does not add sudo, a PTY, or an
+// interactive stdin channel. cwd is shell-quoted and cannot inject shell text.
+func OperatorCommand(command, cwd string) (Command, error) {
+	if strings.TrimSpace(command) == "" {
+		return Command{}, errors.New("operator command must not be empty")
+	}
+	if len(command) > maxOperatorCommandBytes {
+		return Command{}, fmt.Errorf("operator command exceeds %d bytes", maxOperatorCommandBytes)
+	}
+	if strings.ContainsRune(command, '\x00') {
+		return Command{}, errors.New("operator command must not contain NUL bytes")
+	}
+	cwd = strings.TrimSpace(cwd)
+	if len(cwd) > maxOperatorWorkingDirLen {
+		return Command{}, fmt.Errorf("operator working directory exceeds %d bytes", maxOperatorWorkingDirLen)
+	}
+	if strings.ContainsRune(cwd, '\x00') {
+		return Command{}, errors.New("operator working directory must not contain NUL bytes")
+	}
+
+	shell := "/bin/sh -lc " + ShellQuote(command)
+	if cwd != "" {
+		shell = "cd " + ShellQuote(cwd) + " && exec /bin/sh -lc " + ShellQuote(command)
+	}
+	return newCommand("operator_exec", shell), nil
 }
 
 // FilterProcessOutput applies a literal, case-insensitive filter locally. The
