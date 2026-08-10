@@ -1,13 +1,23 @@
 ## Summary
 
-Describe the behavior and security boundary changed by this pull request.
+Describe the user-visible behavior and any security boundary changed by this pull request.
+
+## Access mode
+
+- [ ] Bounded mode
+- [ ] Operator mode
+- [ ] Both / shared infrastructure
+- [ ] Documentation or tooling only
 
 ## Security checklist
 
-- [ ] No MCP input becomes arbitrary shell text.
-- [ ] Target and service authorization remains fail-closed.
-- [ ] Remote content is treated and labeled as untrusted data.
-- [ ] Secrets, commands, and remote output are not logged.
-- [ ] Time and output bounds remain enforced.
-- [ ] Tests cover the new behavior and its rejection paths.
+- [ ] Target authorization remains exact and fail-closed.
+- [ ] Bounded-mode caller input does not become executable shell text.
+- [ ] Any Operator-mode shell execution remains behind local opt-in and lease enforcement.
+- [ ] TetherBound does not silently add root/sudo privileges.
+- [ ] Remote content is treated as untrusted model input.
+- [ ] Credentials, raw commands, and remote output are not logged by default.
+- [ ] Time, request, and output bounds remain enforced where applicable.
+- [ ] Tests cover allowed and rejected/expired paths.
 - [ ] Documentation and threat-model assumptions are updated.
+- [ ] No real credentials, private infrastructure identifiers, or secret-bearing logs are included.
