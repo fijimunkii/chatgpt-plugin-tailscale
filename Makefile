@@ -9,7 +9,7 @@ LDFLAGS := -s -w \
 	-X github.com/fijimunkii/chatgpt-plugin-tailscale/internal/version.Commit=$(COMMIT) \
 	-X github.com/fijimunkii/chatgpt-plugin-tailscale/internal/version.BuildDate=$(BUILD_DATE)
 
-.PHONY: all fmt-check scripts-check site-check test vet build check run up bootstrap bootstrap-check docker clean
+.PHONY: all fmt-check scripts-check site-check test vet build check run up operator-up bootstrap bootstrap-check docker clean
 
 all: check
 
@@ -40,6 +40,9 @@ run:
 
 up:
 	./scripts/run-local.sh
+
+operator-up:
+	OPERATOR_MODE=true ./scripts/run-local.sh
 
 bootstrap:
 	./bootstrap
