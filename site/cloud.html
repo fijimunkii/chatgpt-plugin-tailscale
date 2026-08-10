@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cloud early access — TetherBound</title>
+  <meta name="description" content="Help validate TetherBound Cloud: hosted connectivity and governance for bounded AI access to private infrastructure.">
+  <meta name="theme-color" content="#111814">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true"></span><span>TetherBound</span></a>
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="./index.html#how-it-works">How it works</a><a href="./security.html">Security</a><a href="./community.html">Community</a><a href="./cloud.html" aria-current="page">Cloud</a><a href="./docs.html">Docs</a>
+      </nav>
+      <div class="nav-actions"><a class="button primary small" href="#early-access">Early access</a></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="eyebrow">TetherBound Cloud — validation</div>
+        <h1>The easy path to the same hard boundary.</h1>
+        <p>We are exploring a hosted edition for people who want bounded AI access to private infrastructure without assembling MCP tunnels, runtime credentials, connector lifecycle, and team policy by hand.</p>
+        <div class="hero-actions"><a class="button accent" href="#early-access">Join early access</a><a class="button" href="./security.html">Review the security model</a></div>
+      </div>
+    </section>
+
+    <section class="section compact">
+      <div class="container">
+        <div class="section-head"><div class="eyebrow">Proposed architecture</div><h2>Cloud outside. Trust boundary inside.</h2><p>The customer edge connector keeps the tailnet identity and final policy decision in the customer environment.</p></div>
+        <div class="panel architecture" style="margin-bottom:0;">
+          <div class="architecture-grid">
+            <div class="node"><div class="node-label">AI client</div><h3>ChatGPT / Codex</h3><p>Authenticates to the hosted MCP endpoint.</p></div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="node dark"><div class="node-label">TetherBound Cloud</div><h3>Identity · routing · audit</h3><p>Checks user/workspace policy and routes typed requests through an already connected edge.</p></div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="node"><div class="node-label">Customer controlled</div><h3>TetherBound Edge</h3><p>Holds tailnet state, enforces local policy, and reaches approved hosts. The cloud cannot directly dial the tailnet.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-head"><div class="eyebrow">What Cloud should remove</div><h2>Less plumbing. Not fewer controls.</h2></div>
+        <div class="grid-3">
+          <article class="card"><div class="number">01</div><h3>No developer tunnel setup</h3><p>A stable authenticated MCP endpoint replaces the current need to configure and supervise a private tunnel client yourself.</p></article>
+          <article class="card"><div class="number">02</div><h3>Managed connector lifecycle</h3><p>Pair an edge connector, see its health, rotate credentials, and manage upgrades without losing its customer-side policy boundary.</p></article>
+          <article class="card"><div class="number">03</div><h3>Team governance</h3><p>Map users to hosts and tools, retain audit metadata, and eventually require separate approval for narrowly typed write actions.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section compact">
+      <div class="container prose">
+        <h2>Proposed Cloud principles</h2>
+        <ul>
+          <li><strong>Your edge remains authoritative.</strong> Hosted policy can narrow what a connector allows, not grant something its local policy denies.</li>
+          <li><strong>No long-lived Tailscale OAuth secret in TetherBound Cloud.</strong> Tailnet enrollment happens at the customer edge.</li>
+          <li><strong>No direct inbound cloud path into the tailnet.</strong> The edge opens an outbound authenticated session to the hosted relay.</li>
+          <li><strong>Raw host output is not retained by default.</strong> Results are streamed to the MCP response while audit records retain operational metadata.</li>
+          <li><strong>Open edge.</strong> The connector, agent, protocol, local policy, and platform adapters remain inspectable and self-hostable.</li>
+          <li><strong>Read-only first.</strong> Any future write action gets its own typed capability and prepare → approve → execute flow.</li>
+        </ul>
+
+        <h2>Who we want to test with</h2>
+        <p>We are especially interested in people who operate a small but real private fleet: homelabs, VPSs, self-hosted services, remote development machines, agency/client environments, GPU boxes, or small production infrastructure.</p>
+        <p>Mixed fleets are particularly useful. The roadmap is designed around Linux through Tailscale SSH plus a native outbound agent for Windows and macOS.</p>
+
+        <h2>What we want to learn</h2>
+        <ul>
+          <li>Which infrastructure questions would you actually ask an AI assistant every week?</li>
+          <li>What is the most privileged read capability you would feel comfortable granting?</li>
+          <li>Would you install a small open-source agent on Windows or macOS to avoid passwords and unrestricted remoting?</li>
+          <li>Which pieces of the current DIY setup would make you choose a hosted service instead?</li>
+          <li>Which actions, if any, would you eventually allow after a separate approval?</li>
+          <li>What data-retention and audit guarantees would you need for production systems?</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" id="early-access">
+      <div class="container">
+        <div class="callout">
+          <h2>Help us test the boundary.</h2>
+          <p>This is early product validation, not a sales funnel. Tell us what you run and what you would need before trusting an AI assistant with visibility into it. Please do not include passwords, private keys, IP addresses, customer data, or other secrets.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/fijimunkii/chatgpt-plugin-tailscale/issues/new?template=cloud-interest.yml">Share your use case</a>
+            <a class="button" href="https://github.com/fijimunkii/chatgpt-plugin-tailscale">Follow the project</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer"><div class="container footer-row"><div>© TetherBound. Cloud is a proposed product and is not yet generally available.</div><div class="footer-links"><a href="./index.html">Home</a><a href="./security.html">Security</a><a href="./community.html">Community</a><a href="./docs.html">Docs</a></div></div></footer>
+</body>
+</html>
