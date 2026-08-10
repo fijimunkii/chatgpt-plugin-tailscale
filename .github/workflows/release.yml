@@ -26,7 +26,7 @@ jobs:
             goarch: arm64
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -62,7 +62,7 @@ jobs:
           tar -czf "$NAME.tar.gz" "$NAME"
 
       - name: Upload bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: chatgpt-plugin-tailscale-${{ matrix.goos }}-${{ matrix.goarch }}
           path: chatgpt-plugin-tailscale-*.tar.gz
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download bundles
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: chatgpt-plugin-tailscale-*
           path: dist
