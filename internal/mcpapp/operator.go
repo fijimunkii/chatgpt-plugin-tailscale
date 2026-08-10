@@ -38,7 +38,6 @@ func (c OperatorConfig) active(now time.Time) bool {
 }
 
 func operatorTool() *mcp.Tool {
-	falseValue := false
 	trueValue := true
 	return &mcp.Tool{
 		Name:        "operator_exec",
