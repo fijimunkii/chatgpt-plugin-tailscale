@@ -41,6 +41,9 @@ jobs:
       - name: Test bootstrap scripts
         run: make scripts-check
 
+      - name: Check validation site
+        run: make site-check
+
       - name: Test
         run: go test ./...
 
