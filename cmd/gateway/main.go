@@ -57,6 +57,20 @@ func run() error {
 		logger.Warn("service_status and service_logs are disabled because SSH_ALLOWED_SERVICES is empty")
 	}
 
+	operatorConfig := mcpapp.OperatorConfig{}
+	if cfg.OperatorMode {
+		operatorConfig = mcpapp.OperatorConfig{
+			Enabled:   true,
+			ExpiresAt: time.Now().Add(cfg.OperatorLeaseDuration),
+		}
+		logger.Warn("OPERATOR MODE ENABLED: arbitrary shell execution is available on admitted hosts as the configured SSH user",
+			"ssh_user", cfg.SSHUser,
+			"lease_duration", cfg.OperatorLeaseDuration.String(),
+			"lease_expires_at", operatorConfig.ExpiresAt.UTC().Format(time.RFC3339),
+			"root_added", false,
+		)
+	}
+
 	if err := os.MkdirAll(cfg.TailscaleStateDir, 0o700); err != nil {
 		return fmt.Errorf("create Tailscale state directory: %w", err)
 	}
@@ -127,7 +141,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("create SSH runner: %w", err)
 	}
-	app, err := mcpapp.New(catalog, runner, servicePolicy, cfg.MaxLogLines, cfg.MaxProcesses)
+	app, err := mcpapp.New(catalog, runner, servicePolicy, cfg.MaxLogLines, cfg.MaxProcesses, operatorConfig)
 	if err != nil {
 		return fmt.Errorf("create MCP app: %w", err)
 	}
