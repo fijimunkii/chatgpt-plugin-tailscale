@@ -49,6 +49,11 @@ TUNNEL_HEALTH_ADDR="${TUNNEL_CLIENT_HEALTH_ADDR:-127.0.0.1:8081}"
 GATEWAY_BASE="${MCP_SERVER_URL%/mcp}"
 TUNNEL_BASE="http://$TUNNEL_HEALTH_ADDR"
 
+operator_requested=false
+case "${OPERATOR_MODE:-false}" in
+  1|t|T|true|TRUE|True) operator_requested=true ;;
+esac
+
 mkdir -p "$LOG_DIR"
 chmod 700 "$ROOT_DIR/data" "$LOG_DIR" 2>/dev/null || true
 
@@ -69,12 +74,19 @@ wait_for_url() {
 printf 'Starting ChatGPT Tailscale SSH Inspector\n'
 
 if curl -fsS --max-time 2 "$GATEWAY_BASE/healthz" >/dev/null 2>&1; then
+  if $operator_requested; then
+    die "a gateway is already running at $GATEWAY_BASE; stop it before starting a fresh Operator-mode lease"
+  fi
   info "gateway is already running at $GATEWAY_BASE"
   wait_for_url "$GATEWAY_BASE/readyz" 15 "gateway" || die "existing gateway is healthy but not ready"
 else
   info "building gateway"
   make -C "$ROOT_DIR" build >/dev/null
-  info "starting gateway; log: $LOG_DIR/gateway.log"
+  if $operator_requested; then
+    info "starting gateway in Operator mode; log: $LOG_DIR/gateway.log"
+  else
+    info "starting gateway; log: $LOG_DIR/gateway.log"
+  fi
   (
     cd "$ROOT_DIR"
     exec ./bin/gateway
@@ -102,7 +114,10 @@ fi
 printf '\nReady\n'
 ok "MCP gateway: $MCP_SERVER_URL"
 ok "Tunnel status: $TUNNEL_BASE/ui"
-info "In ChatGPT Plugins, select the tunnel and scan tools."
+if $operator_requested; then
+  ok "Operator mode: active for the locally configured lease; arbitrary shell runs as ${SSH_USER:-chatgpt} without TetherBound-added elevation"
+fi
+info "In ChatGPT, select the tunnel and rescan tools."
 info "Press Ctrl-C to stop only the processes started by this command."
 
 if [[ -z "$GATEWAY_PID" && -z "$TUNNEL_PID" ]]; then
@@ -120,7 +135,7 @@ while :; do
   if [[ -n "$TUNNEL_PID" ]] && ! kill -0 "$TUNNEL_PID" >/dev/null 2>&1; then
     wait "$TUNNEL_PID" || true
     tail -n 80 "$LOG_DIR/tunnel-client.log" >&2 || true
-    die "tunnel-client exited"
+    die "tunnel-client failed"
   fi
   sleep 1
 done
