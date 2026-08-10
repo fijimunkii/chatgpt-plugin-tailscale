@@ -8,34 +8,46 @@ TetherBound is a security-first MCP gateway for giving AI assistants controlled
 access to explicitly allowed private infrastructure. The implemented v0.1 path
 supports Linux targets over
 [Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh); the committed
-roadmap extends the same typed tools to Windows and macOS through an open-source
-host agent.
+roadmap extends the same model to Windows and macOS through an open-source host
+agent.
 
-The product boundary is intentionally narrower than “SSH from ChatGPT.” The
-assistant receives fixed, bounded capabilities rather than an unrestricted
-remote shell. The current gateway embeds a Tailscale node with
-[`tsnet`](https://tailscale.com/docs/reference/tsnet-server-api), discovers peers
-from its local tailnet status, verifies SSH host keys distributed by Tailscale's
-control plane, and exposes only fixed read-only operations. It does **not**
-accept arbitrary commands and does **not** store SSH private keys.
+TetherBound now supports two access shapes:
+
+- **Bounded mode (default):** seven fixed, typed, read-only operations with exact
+  allowlists and hard result limits.
+- **Operator mode (experimental):** an explicit, locally started lease that gives
+  the AI arbitrary POSIX shell access on admitted Linux hosts as the configured
+  OS account, without TetherBound adding root or sudo privileges.
+
+The boundary therefore does not have to mean approving every individual
+operation. In Operator mode it moves outward to **the admitted host + OS account
++ local lease**. Both modes still use the embedded Tailscale identity, local
+host admission, and strict Tailscale-distributed SSH host-key verification.
+TetherBound does **not** store SSH private keys.
 
 TetherBound is an independent community project and is not affiliated with or
 endorsed by Tailscale or OpenAI.
 
 > [!IMPORTANT]
 > This is an initial implementation intended for private testing. Remote
-> hostnames, logs, process arguments, and command output are untrusted data and
-> can contain prompt-injection text. Keep the host allowlist narrow and review
-> the threat model before deployment.
+> hostnames, logs, process arguments, files, repository content, and command
+> output are untrusted data and can contain prompt-injection text. Operator mode
+> materially increases the consequences of model mistakes because it is a real
+> shell. Keep its host/account blast radius deliberate and review the threat
+> model before deployment.
 
 ## Product validation site
 
-The repository now includes a dependency-free static validation site in
-[`site/`](site/). It explains the product in non-implementation language,
-separates shipped features from roadmap concepts, and collects structured Cloud
-interest without asking for infrastructure secrets.
+The repository includes an incubation copy of the dependency-free validation
+site in [`site/`](site/). The public deployment source of truth now lives in the
+separate `tetherbound-site` repository and is published at
+[`tetherbound.dev`](https://tetherbound.dev/).
 
-Preview it locally:
+The site explains the product in non-implementation language, separates shipped
+features from roadmap concepts, and collects structured Cloud interest without
+asking for infrastructure secrets.
+
+Preview the incubation copy locally:
 
 ```bash
 python3 -m http.server 4173 --directory site
@@ -47,9 +59,9 @@ Pages:
 
 - [`Landing page`](site/index.html) — **Give AI access. Keep it bounded.**
 - [`Security`](site/security.html) — customer-facing trust boundary.
-- [`Community`](site/community.html) — current open-source / DIY edition.
+- [`Community`](site/community.html) — current open-source / DIY direction.
 - [`Cloud`](site/cloud.html) — proposed hosted edition and validation CTA.
-- [`Docs portal`](site/docs.html) — working implementation and roadmap docs.
+- [`Docs portal`](site/docs.html) — implementation and roadmap docs.
 
 Product-learning documents:
 
@@ -58,6 +70,8 @@ Product-learning documents:
 - [`Product roadmap`](docs/roadmap.md)
 - [`Cross-platform architecture and hosted product spec`](docs/cross-platform-spec.md)
 - [`Normalized MCP tool contracts v1`](docs/tool-contracts-v1.md)
+- [`Operator mode`](docs/operator-mode.md)
+- [`Threat model`](docs/threat-model.md)
 
 The runtime repository/binary/tag names are intentionally not migrated in this
 branding change. Those identifiers should move only through a dedicated
@@ -93,15 +107,38 @@ To configure a target through an existing administrator SSH path:
 ./bootstrap --target ubuntu@server.example --with-journal
 ```
 
-After bootstrap, launch both local processes with one command:
+### Bounded mode
+
+After bootstrap, launch the default read-only gateway and tunnel:
 
 ```bash
-./scripts/run-local.sh
-# or: make up
+make up
 ```
 
-The launcher reuses already healthy processes, waits for both readiness checks,
-and stops only processes it started. The local endpoints are:
+The launcher reuses already healthy bounded processes, waits for both readiness
+checks, and stops only processes it started.
+
+### Operator mode — experimental
+
+For a design-partner session that deliberately grants arbitrary shell access to
+the admitted Linux machines as `SSH_USER`:
+
+```bash
+make operator-up
+```
+
+The default Operator lease is one hour. To shorten it:
+
+```bash
+OPERATOR_LEASE_DURATION=30m make operator-up
+```
+
+`make operator-up` fails closed when another gateway is already running. Stop
+the existing gateway first so the launcher cannot silently reuse a bounded
+process. Operator mode is intentionally not persisted in `config/example.env`.
+After launch, rescan the MCP tools in ChatGPT so `operator_exec` appears.
+
+The local endpoints are:
 
 ```text
 MCP gateway:       http://127.0.0.1:8080/mcp
@@ -112,7 +149,8 @@ Tunnel admin UI:   http://127.0.0.1:8081/ui
 
 See the complete [`bootstrap guide`](docs/bootstrap.md) for the exact admin-console
 steps, rerun guarantees, non-interactive mode, target-only usage, macOS
-Gatekeeper guidance, and troubleshooting.
+Gatekeeper guidance, and troubleshooting. Read [`docs/operator-mode.md`](docs/operator-mode.md)
+before enabling broad access.
 
 ## Cross-platform and hosted direction
 
@@ -129,7 +167,7 @@ Instead, a small open-source TetherBound Agent will:
 - authenticate with both Tailscale source identity and mTLS;
 - implement native typed reads for system facts, disks, processes, services,
   and Windows Event Logs;
-- return the same normalized MCP contracts as Linux.
+- return the same normalized bounded MCP contracts as Linux.
 
 The same agent model will support macOS and optionally Linux. Agentless
 Tailscale SSH remains the zero-install Linux path. The gateway/TetherBound Edge
@@ -141,12 +179,13 @@ Tailscale identity and local policy at the edge; the cloud does not directly
 dial the tailnet. Cloud is currently a product-validation concept, not a shipped
 service.
 
-The highest-priority next implementation milestone is a Windows read-only host
-agent tested beside the current Linux target.
+The immediate validation milestone is a real external Linux Operator-mode
+install. The next implementation milestone after that remains a Windows host
+agent tested beside the current Linux path.
 
 ## Included tools
 
-| Tool | Current v0.1 behavior |
+| Tool | Current behavior |
 | --- | --- |
 | `list_hosts` | Lists only peers admitted by `TS_ALLOWED_TAGS` or `TS_ALLOWED_HOSTS`. |
 | `inspect_host` | Returns tailnet metadata and readiness for one allowed peer. |
@@ -155,10 +194,13 @@ agent tested beside the current Linux target.
 | `service_status` | Fixed `systemctl show` for an exact service allowlist. |
 | `service_logs` | Fixed, line-bounded `journalctl` read for an exact service allowlist. |
 | `process_list` | Fixed `ps` read; optional filtering happens locally in the gateway. |
+| `operator_exec` | **Experimental / opt-in.** Arbitrary POSIX shell text on one admitted Linux host during an active local Operator lease. |
 
-All tools are marked read-only and idempotent. They do not modify targets. The
-cross-platform contract preserves these tool names while normalizing their
-structured outputs across operating systems.
+The first seven tools are the default Bounded surface and are marked read-only
+and idempotent. `operator_exec` is registered only when Operator mode is locally
+enabled and is marked writable, non-idempotent, destructive, and open-world.
+MCP annotations are descriptive metadata; the actual boundary is enforced by
+TetherBound and Tailscale.
 
 ## Security model
 
@@ -170,13 +212,18 @@ The implemented gateway applies several independent boundaries:
 3. The gateway independently filters the netmap with `TS_ALLOWED_TAGS` and
    `TS_ALLOWED_HOSTS`.
 4. Shared nodes are excluded unless `TS_ALLOW_SHARED_NODES=true`.
-5. Execution requires an online, unexpired Linux peer with a Tailscale IP and
+5. Execution requires an online Linux peer with a Tailscale IP and
    control-plane-distributed SSH host keys.
 6. The remote login is a dedicated non-root account, `chatgpt` by default.
-7. Commands are opaque values constructible only by the fixed command package.
-   No MCP argument or generic string can reach the SSH runner as a command.
-8. Timeouts and a combined stdout/stderr byte limit bound each operation.
-9. Logs contain operation metadata but never command output or secrets.
+7. In Bounded mode, caller text cannot become a remote command; the fixed command
+   package constructs the allowed operations.
+8. In Operator mode, arbitrary shell text is the deliberate capability, but it
+   remains restricted to an active locally started lease and the same admitted
+   host + SSH-account boundary. TetherBound does not add sudo or root.
+9. Timeouts and a combined stdout/stderr byte limit bound each operation in both
+   modes.
+10. Gateway logs contain operation metadata but do not retain raw command text
+    or raw command output by default.
 
 The planned host-agent path adds a second authenticated transport rather than
 weakening these controls: agents dial outbound, Tailscale identity and mTLS are
@@ -186,8 +233,9 @@ The bootstrap keeps local credentials in gitignored `.env` and `.env.tunnel`
 files with mode `0600`. For a shared or production deployment, replace those
 files with an external secrets manager.
 
-Read [`docs/threat-model.md`](docs/threat-model.md) and the customer-facing
-[`Security page`](site/security.html) before enabling access to sensitive hosts.
+Read [`docs/threat-model.md`](docs/threat-model.md) and
+[`docs/operator-mode.md`](docs/operator-mode.md) before enabling access to
+sensitive hosts.
 
 ## Tailscale policy
 
@@ -280,13 +328,15 @@ an existing file.
 | `TS_EPHEMERAL` | `false` | Register the embedded node as ephemeral. |
 | `TS_CONTROL_URL` | empty | Optional alternate coordination server. |
 | `TS_UP_TIMEOUT` | `90s` | Tailnet startup deadline. |
-| `SSH_USER` | `chatgpt` | Remote OS account. |
-| `SSH_ALLOWED_SERVICES` | empty | Exact systemd unit allowlist; empty disables service tools. |
+| `SSH_USER` | `chatgpt` | Remote OS account used by both access modes. |
+| `SSH_ALLOWED_SERVICES` | empty | Exact systemd unit allowlist for Bounded service tools; empty disables those tools. |
 | `SSH_DIAL_TIMEOUT` | `10s` | Tailnet TCP dial deadline. |
-| `SSH_COMMAND_TIMEOUT` | `15s` | End-to-end command deadline. |
+| `SSH_COMMAND_TIMEOUT` | `15s` code fallback; `2m` in `config/example.env` | End-to-end command deadline. |
 | `SSH_MAX_OUTPUT_BYTES` | `262144` | Combined stdout/stderr capture limit. |
 | `SSH_MAX_LOG_LINES` | `200` | Maximum journal lines per call. |
 | `SSH_MAX_PROCESSES` | `100` | Maximum returned process rows. |
+| `OPERATOR_MODE` | `false` | Registers `operator_exec` when explicitly enabled locally. Intentionally not persisted by the example config. |
+| `OPERATOR_LEASE_DURATION` | `1h` | Operator lease from process start; accepted range 5m–24h. |
 | `SERVER_SHUTDOWN_TIMEOUT` | `10s` | Graceful HTTP shutdown deadline. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |
 
@@ -303,7 +353,8 @@ SSH_ALLOWED_SERVICES=tailscaled.service,nginx.service
 
 ## Manual gateway run
 
-The bootstrap launcher is recommended. To run only the gateway manually:
+The bootstrap launcher is recommended. To run only the gateway manually in
+Bounded mode:
 
 ```bash
 set -a
@@ -311,6 +362,15 @@ set -a
 set +a
 
 go run ./cmd/gateway
+```
+
+For a manual Operator-mode process:
+
+```bash
+set -a
+. ./.env
+set +a
+OPERATOR_MODE=true go run ./cmd/gateway
 ```
 
 The MCP endpoint is `http://127.0.0.1:8080/mcp`. Health checks are available at
@@ -378,20 +438,30 @@ Useful targets:
 ```bash
 make bootstrap        # interactive setup
 make bootstrap-check  # read-only diagnostics
-make up               # gateway + tunnel-client
+make up               # bounded gateway + tunnel-client
+make operator-up      # experimental Operator lease + tunnel-client
 ```
 
 The test suite covers configuration fail-closed behavior, target filtering and
-ambiguous allowlist rejection, opaque command construction, local process
-filtering, bearer authentication, strict host-key verification, combined output
-limits, bootstrap reruns, target checks, and tunnel profile reuse.
+ambiguous allowlist rejection, bounded command construction, Operator command
+construction and lease behavior, local process filtering, bearer authentication,
+strict host-key verification, combined output limits, bootstrap reruns, target
+checks, and tunnel profile reuse.
 
 ## Current limitations
 
-- Read-only inspection only; no arbitrary command execution.
+- Operator mode is experimental and Linux/Tailscale-SSH-only today.
+- Operator leases are process-relative in v0.1; a deliberately restarted process
+  with Operator mode enabled receives a fresh lease. Do not persist it in a
+  service manager for the design-partner preview.
+- TetherBound does not add root/Administrator access. Existing privileged group
+  membership (for example Docker daemon access) is part of the delegated blast
+  radius and must be evaluated separately.
+- Operator mode has no PTY, interactive stdin, or persistent terminal session;
+  each `operator_exec` call is a bounded command invocation.
 - The implemented target adapter is Linux-only today.
 - Tailscale SSH is required for the implemented target path.
-- Systemd is required for current service status and service logs.
+- Systemd is required for current bounded service status and service logs.
 - One embedded Tailscale identity and one tailnet per process.
 - Tailnet policy and machine-tag changes remain explicit admin-console steps.
 - The current bootstrap source of truth is Bash; a cross-platform Go setup CLI
@@ -402,7 +472,8 @@ limits, bootstrap reruns, target checks, and tunnel profile reuse.
   embedded node's netmap/LocalAPI, avoiding broad administrative credentials.
 
 See [`docs/architecture.md`](docs/architecture.md) for the implemented request
-path and [`docs/cross-platform-spec.md`](docs/cross-platform-spec.md) for the
+path, [`docs/operator-mode.md`](docs/operator-mode.md) for the broad-access
+preview, and [`docs/cross-platform-spec.md`](docs/cross-platform-spec.md) for the
 planned cross-platform and hosted architecture.
 
 ## License
