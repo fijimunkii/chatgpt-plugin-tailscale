@@ -33,7 +33,6 @@ trap cleanup EXIT INT TERM
 [[ -f "$TUNNEL_ENV_FILE" ]] || die "$TUNNEL_ENV_FILE is missing; run ./bootstrap"
 command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v tunnel-client >/dev/null 2>&1 || die "tunnel-client is required"
-command -v make >/dev/null 2>&1 || die "make is required"
 
 set -a
 # shellcheck disable=SC1090
@@ -71,6 +70,20 @@ wait_for_url() {
   return 1
 }
 
+prepare_gateway_binary() {
+  if command -v go >/dev/null 2>&1; then
+    command -v make >/dev/null 2>&1 || die "make is required to build the gateway from source"
+    info "building gateway from source"
+    make -C "$ROOT_DIR" build >/dev/null
+    return 0
+  fi
+  if [[ -x "$ROOT_DIR/bin/gateway" ]]; then
+    info "using prebuilt gateway binary: $ROOT_DIR/bin/gateway"
+    return 0
+  fi
+  die "Go is not installed and no executable prebuilt bin/gateway is present"
+}
+
 printf 'Starting TetherBound Community / ChatGPT Tailscale MCP gateway\n'
 
 if curl -fsS --max-time 2 "$GATEWAY_BASE/healthz" >/dev/null 2>&1; then
@@ -80,8 +93,7 @@ if curl -fsS --max-time 2 "$GATEWAY_BASE/healthz" >/dev/null 2>&1; then
   info "gateway is already running at $GATEWAY_BASE"
   wait_for_url "$GATEWAY_BASE/readyz" 15 "gateway" || die "existing gateway is healthy but not ready"
 else
-  info "building gateway"
-  make -C "$ROOT_DIR" build >/dev/null
+  prepare_gateway_binary
   if $operator_requested; then
     info "starting gateway in Operator mode; log: $LOG_DIR/gateway.log"
   else
