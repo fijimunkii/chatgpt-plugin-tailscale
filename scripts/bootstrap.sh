@@ -21,9 +21,9 @@ usage() {
   cat <<'USAGE'
 Usage: ./bootstrap [options]
 
-Interactive, rerunnable setup for the Tailscale SSH MCP gateway. Existing
-configuration, target users, Tailscale SSH settings, and matching tunnel-client
-profiles are preserved.
+Interactive, rerunnable setup for the TetherBound Community Tailscale SSH MCP
+gateway. Existing configuration, target users, Tailscale SSH settings, and
+matching tunnel-client profiles are preserved.
 
 Options:
   --check                 Read-only diagnostics
@@ -104,7 +104,6 @@ done
 
 [[ "$PROFILE" =~ ^[A-Za-z0-9._-]+$ ]] || die "unsafe tunnel profile name: $PROFILE"
 
-
 # Keep the operator-facing entry point small; implementation is grouped by concern.
 # shellcheck source=scripts/bootstrap-common.sh
 . "$SCRIPT_DIR/bootstrap-common.sh"
@@ -112,7 +111,7 @@ done
 . "$SCRIPT_DIR/bootstrap-setup.sh"
 # shellcheck source=scripts/bootstrap-check.sh
 . "$SCRIPT_DIR/bootstrap-check.sh"
-printf 'ChatGPT Tailscale SSH Inspector bootstrap\n'
+printf 'TetherBound Community / ChatGPT Tailscale MCP bootstrap\n'
 printf 'Safe to rerun: existing matching resources are preserved.\n'
 
 if $CHECK_ONLY; then
@@ -128,7 +127,7 @@ configure_tunnel
 
 section "Next step"
 info "Run both local processes with: ./scripts/run-local.sh"
-info "Then select the tunnel in ChatGPT Plugins and scan the seven MCP tools."
+info "Then create/open the ChatGPT custom MCP app for this tunnel and scan its tools."
 info "Rerun ./bootstrap at any time; use ./bootstrap --check for diagnostics."
 
 if is_interactive && command -v tunnel-client >/dev/null 2>&1; then
