@@ -131,9 +131,16 @@ preflight() {
   section "Local prerequisites"
   require_command bash
   require_command curl
-  require_command go
   ok "bash: $(bash --version | head -n 1)"
-  ok "Go: $(go version)"
+
+  if command -v go >/dev/null 2>&1; then
+    ok "Go: $(go version)"
+  elif [[ -x "$ROOT_DIR/bin/gateway" ]]; then
+    ok "gateway: using prebuilt release binary at $ROOT_DIR/bin/gateway (Go toolchain not required)"
+  else
+    die "Go is required when no prebuilt bin/gateway is present"
+  fi
+
   if command -v tunnel-client >/dev/null 2>&1; then
     ok "tunnel-client: $(tunnel-client --version 2>/dev/null || printf installed)"
   else
