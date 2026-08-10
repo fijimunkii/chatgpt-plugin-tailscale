@@ -15,21 +15,21 @@ import (
 )
 
 const (
-	defaultListenAddr             = "127.0.0.1:8080"
-	defaultTailscaleHostname      = "chatgpt-ssh-gateway"
-	defaultTailscaleStateDir      = "./data/tsnet"
-	defaultAdvertiseTag           = "tag:chatgpt-ssh"
-	defaultAllowedTag             = "tag:chatgpt-managed"
-	defaultSSHUser                = "chatgpt"
-	defaultDialTimeout            = 10 * time.Second
-	defaultCommandTimeout         = 15 * time.Second
-	defaultOperatorLeaseDuration  = time.Hour
-	defaultTailscaleUpTimeout     = 90 * time.Second
-	defaultShutdownTimeout        = 10 * time.Second
-	defaultMaxOutputBytes         = 256 << 10
-	defaultMaxRequestBodyBytes    = 1 << 20
-	defaultMaxLogLines            = 200
-	defaultMaxProcesses           = 100
+	defaultListenAddr            = "127.0.0.1:8080"
+	defaultTailscaleHostname     = "chatgpt-ssh-gateway"
+	defaultTailscaleStateDir     = "./data/tsnet"
+	defaultAdvertiseTag          = "tag:chatgpt-ssh"
+	defaultAllowedTag            = "tag:chatgpt-managed"
+	defaultSSHUser               = "chatgpt"
+	defaultDialTimeout           = 10 * time.Second
+	defaultCommandTimeout        = 15 * time.Second
+	defaultOperatorLeaseDuration = time.Hour
+	defaultTailscaleUpTimeout    = 90 * time.Second
+	defaultShutdownTimeout       = 10 * time.Second
+	defaultMaxOutputBytes        = 256 << 10
+	defaultMaxRequestBodyBytes   = 1 << 20
+	defaultMaxLogLines           = 200
+	defaultMaxProcesses          = 100
 )
 
 // LookupEnv matches os.LookupEnv and makes configuration parsing testable.
