@@ -1,0 +1,76 @@
+name: Bug report
+description: Report a reproducible TetherBound Community problem
+title: "[Bug] "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. **Do not include credentials, auth keys, private keys, tokens, tsnet state, customer data, or secret-bearing logs.** Use SECURITY.md instead for vulnerabilities.
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Access mode
+      options:
+        - Bounded mode
+        - Operator mode
+        - Both / shared infrastructure
+        - Setup or gateway startup
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: TetherBound version or commit
+      placeholder: v0.x.x or git commit
+    validations:
+      required: true
+  - type: input
+    id: gateway
+    attributes:
+      label: Gateway OS and architecture
+      placeholder: macOS 15 arm64 / Ubuntu 24.04 amd64
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Target OS
+      placeholder: Ubuntu 24.04
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Redact private infrastructure details and secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Include commands/config keys only when safe and redact values.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics
+      description: Relevant non-secret output from ./bootstrap --check or gateway errors.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Sensitive-data check
+      options:
+        - label: I removed credentials, tokens, private keys, tsnet state, customer data, and secret-bearing logs.
+          required: true
+        - label: This is not a vulnerability or suspected security-boundary bypass.
+          required: true
