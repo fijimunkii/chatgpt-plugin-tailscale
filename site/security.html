@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security — TetherBound</title>
+  <meta name="description" content="How TetherBound constrains AI access to private infrastructure with typed operations, local policy, bounded output, and explicit trust boundaries.">
+  <meta name="theme-color" content="#111814">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true"></span><span>TetherBound</span></a>
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="./index.html#how-it-works">How it works</a>
+        <a href="./security.html" aria-current="page">Security</a>
+        <a href="./community.html">Community</a>
+        <a href="./cloud.html">Cloud</a>
+        <a href="./docs.html">Docs</a>
+      </nav>
+      <div class="nav-actions"><a class="button primary small" href="./cloud.html#early-access">Early access</a></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="eyebrow">Security model</div>
+        <h1>Bounded by design.</h1>
+        <p>TetherBound is built around a simple rule: connecting an AI assistant to infrastructure should not mean giving it an unrestricted remote shell.</p>
+      </div>
+    </section>
+
+    <section class="section compact">
+      <div class="container">
+        <div class="grid-3">
+          <article class="card"><div class="number">Boundary 01</div><h3>Network identity</h3><p>The current Linux path uses a dedicated tagged Tailscale identity with narrowly scoped network and SSH policy.</p></article>
+          <article class="card"><div class="number">Boundary 02</div><h3>Local policy</h3><p>TetherBound independently filters which hosts, services, log sources, tools, and bounds are allowed. Local policy remains authoritative.</p></article>
+          <article class="card"><div class="number">Boundary 03</div><h3>Typed operations</h3><p>The MCP surface exposes fixed operations such as disk usage or service status. Caller text does not become a shell command.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section compact">
+      <div class="container prose">
+        <h2>What TetherBound deliberately does not provide</h2>
+        <ul>
+          <li>No generic <code>run_command</code> tool.</li>
+          <li>No unrestricted shell, PTY, PowerShell, WinRM, RDP, or arbitrary script endpoint in the read-only product.</li>
+          <li>No SSH private key stored in ChatGPT or in the current gateway.</li>
+          <li>No public SSH port required for the current Tailscale path.</li>
+          <li>No automatic elevation to <code>root</code>, Administrator, or LocalSystem just to obtain richer telemetry.</li>
+          <li>No silent expansion from one host selector to many targets.</li>
+          <li>No write action inferred directly from remote logs or other untrusted host output.</li>
+        </ul>
+
+        <h2>Current Community trust path</h2>
+        <pre><code>ChatGPT
+   │
+   │ OpenAI Secure MCP Tunnel
+   ▼
+TetherBound gateway
+   │  local host/tool policy
+   │  embedded tagged Tailscale node
+   ▼
+Tailscale SSH
+   │
+   ▼
+Dedicated non-root account on an allowed Linux host</code></pre>
+        <p>The gateway verifies Tailscale-distributed SSH host keys, rejects shared nodes by default, requires a known online Linux peer, bounds command time and output size, and exposes only fixed read-only command builders.</p>
+
+        <h2>Future agent trust path</h2>
+        <pre><code>AI client
+   │
+   ▼
+TetherBound connector
+   ▲
+   │ tailnet-only session
+   │ Tailscale source identity + mTLS
+   │
+TetherBound Agent
+   │
+   ▼
+Native Windows / macOS / Linux read APIs</code></pre>
+        <p>Windows and mainstream macOS targets are planned around an outbound host agent instead of asking users for reusable passwords or creating a generic remote-command channel. The connector verifies both the Tailscale source identity and the agent certificate before dispatching typed operations.</p>
+
+        <h2>Cloud does not replace the local boundary</h2>
+        <p>The planned hosted product adds authentication, routing, policy management, health, and audit metadata. The customer edge connector still performs a second authorization decision locally. Hosted policy may narrow local access but is not allowed to widen it.</p>
+        <p>The planned cloud relay will necessarily carry result data on its way back to the AI client. The default design is to stream that output rather than retain it. Audit records keep metadata such as actor, host, tool, policy decision, duration, byte counts, truncation, and status—not raw process listings or log output by default.</p>
+
+        <h2>Remote content is untrusted</h2>
+        <p>Hostnames, logs, process arguments, service descriptions, and other machine-derived strings can contain malicious or misleading text. TetherBound treats them as data, bounds their size, strips unsafe terminal control sequences, and avoids feeding remote text directly into future write actions.</p>
+
+        <h2>Write actions come later</h2>
+        <p>The proposed write model is intentionally different from the read model:</p>
+        <pre><code>prepare_action
+      ↓
+resolve host + policy + exact immutable action
+      ↓
+approve_action
+      ↓
+short-lived approval bound to that exact action
+      ↓
+execute_approved_action</code></pre>
+        <p>Arbitrary shell access remains out of scope. A restart, deployment, cache clear, or similar operation must be implemented as its own typed capability with its own authorization and audit semantics.</p>
+
+        <h2>Review the implementation</h2>
+        <p>The edge gateway, roadmap, threat model, and proposed cross-platform agent are developed in the open. Start with the <a href="https://github.com/fijimunkii/chatgpt-plugin-tailscale/blob/agent/initial-tailscale-mcp-gateway/docs/threat-model.md">threat model</a> and <a href="https://github.com/fijimunkii/chatgpt-plugin-tailscale/blob/agent/initial-tailscale-mcp-gateway/docs/cross-platform-spec.md">cross-platform architecture specification</a>.</p>
+
+        <div class="notice"><strong>Project status:</strong> the Linux read-only path is implemented and has been tested end-to-end. Windows/macOS host agents, the hosted control plane, and write actions are roadmap items, not currently shipped capabilities.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-row"><div>© TetherBound. Independent open-source project; not affiliated with Tailscale or OpenAI.</div><div class="footer-links"><a href="./index.html">Home</a><a href="./docs.html">Docs</a><a href="./community.html">Community</a><a href="https://github.com/fijimunkii/chatgpt-plugin-tailscale">GitHub</a></div></div>
+  </footer>
+</body>
+</html>
