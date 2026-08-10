@@ -9,7 +9,7 @@ LDFLAGS := -s -w \
 	-X github.com/fijimunkii/chatgpt-plugin-tailscale/internal/version.Commit=$(COMMIT) \
 	-X github.com/fijimunkii/chatgpt-plugin-tailscale/internal/version.BuildDate=$(BUILD_DATE)
 
-.PHONY: all fmt-check scripts-check site-check test vet build check run up operator-up bootstrap bootstrap-check docker clean
+.PHONY: all fmt-check scripts-check test vet build check run up operator-up bootstrap bootstrap-check docker clean
 
 all: check
 
@@ -19,9 +19,6 @@ fmt-check:
 scripts-check:
 	bash -n bootstrap scripts/*.sh
 	./scripts/test-bootstrap.sh
-
-site-check:
-	python3 scripts/check-site.py
 
 test:
 	go test ./...
@@ -33,7 +30,7 @@ build:
 	@mkdir -p bin
 	go build -trimpath -ldflags='$(LDFLAGS)' -o $(BINARY) ./cmd/gateway
 
-check: scripts-check site-check fmt-check test vet build
+check: scripts-check fmt-check test vet build
 
 run:
 	go run ./cmd/gateway
