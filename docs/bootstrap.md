@@ -1,4 +1,4 @@
-# Bootstrap guide
+# Self-host bootstrap guide
 
 The supported first-run path is:
 
@@ -6,48 +6,36 @@ The supported first-run path is:
 ./bootstrap
 ```
 
-The bootstrap wizard codifies the full setup we otherwise have to coordinate
-across Tailscale, the Linux target, the local gateway, OpenAI Secure MCP Tunnel,
-and ChatGPT. It is deliberately safe to rerun.
+The wizard coordinates the pieces required for the current Linux target path: Tailscale policy, target preparation, the embedded TetherBound gateway identity, OpenAI Secure MCP Tunnel, and ChatGPT custom MCP app connectivity. It is designed to be safe to rerun.
 
 ## What the wizard does
 
-The wizard:
+It:
 
-1. Checks local prerequisites.
-2. Shows the exact Tailscale policy fragment and opens the Access Controls page.
-3. Optionally copies and runs the idempotent target helper over an existing
-   administrator SSH connection.
-4. Creates or preserves `.env`, prompts for the gateway's Tailscale enrollment
-   credential when needed, and enforces mode `0600`.
-5. Creates or preserves `.env.tunnel` for the OpenAI runtime key and tunnel ID,
-   also with mode `0600`.
-6. Creates a `tunnel-client` profile with its health listener on
-   `127.0.0.1:8081`, avoiding the gateway's port `8080`.
-7. Offers to launch the gateway and tunnel together.
+1. checks local prerequisites;
+2. shows the Tailscale policy fragment and opens the Access Controls page;
+3. optionally configures a Linux target over an existing administrator SSH path;
+4. creates or preserves `.env` for local gateway configuration;
+5. creates or preserves `.env.tunnel` for Secure MCP Tunnel configuration;
+6. creates/reuses the `tunnel-client` profile with health on `127.0.0.1:8081` while the MCP gateway uses `127.0.0.1:8080`;
+7. optionally starts the gateway and tunnel.
 
-The wizard does **not** silently edit your tailnet policy or assign a tag to an
-existing machine. Those are high-impact administrative changes and remain
-explicit confirmation steps in the Tailscale admin console.
+It does **not** silently replace tailnet policy or assign machine tags. Those remain explicit administrative actions.
 
 ## Rerun behavior
 
-Running `./bootstrap` again is safe:
+Running `./bootstrap` again preserves existing matching resources:
 
-- Existing `.env` and `.env.tunnel` files are updated by key without deleting
-  unrelated settings.
-- Repeated keys are collapsed to one entry.
-- An existing `tsnet` identity under `TS_STATE_DIR` is reused.
-- An existing Linux `chatgpt` account is preserved.
-- Existing journal group membership is preserved.
-- `tailscale set --ssh` is safe to repeat.
-- A matching `tunnel-client` profile is reused.
-- A mismatched profile is left untouched unless you explicitly approve a backup
-  and replacement or pass `--reconfigure-tunnel`.
-- `run-local.sh` will not start duplicate gateway or tunnel processes. It leaves
-  processes it did not start untouched.
+- `.env` and `.env.tunnel` are updated by key rather than recreated blindly;
+- repeated environment keys are collapsed;
+- an existing `tsnet` identity under `TS_STATE_DIR` is reused;
+- an existing target `chatgpt` account is preserved;
+- journal group membership is preserved;
+- `tailscale set --ssh` is safe to repeat;
+- a matching tunnel profile is reused;
+- a mismatched profile is replaced only after explicit approval or `--reconfigure-tunnel`.
 
-Use the read-only diagnostics at any time:
+Diagnostics are read-only:
 
 ```bash
 ./bootstrap --check
@@ -55,127 +43,105 @@ Use the read-only diagnostics at any time:
 
 ## Prerequisites
 
-On the gateway machine:
+Gateway machine:
 
 - Bash
-- Go 1.26.5 or later
+- Go version declared in `go.mod`
 - `curl`
 - OpenAI `tunnel-client`
 - `ssh` and `scp` only when using remote target setup
 
-On each target:
+Target machine:
 
 - Linux
 - Tailscale installed and connected
-- `systemd` for service-status and service-log tools
-- An existing administrator path that does not depend on the new `chatgpt`
-  account
+- `systemd` for the current service-status/log tools
+- an existing administrator path independent of the new `chatgpt` account
 
-Download the currently supported `tunnel-client` build from OpenAI Platform:
+For ChatGPT, private/local MCP servers are connected through Secure MCP Tunnel. ChatGPT currently exposes custom MCP integrations as **apps** in developer mode; UI and plan availability can change, so consult current OpenAI documentation when the UI differs from this guide.
 
-**Organization settings → Tunnels**
+On macOS, if Gatekeeper blocks a downloaded `tunnel-client` binary, verify its checksum and approve that individual binary through **System Settings → Privacy & Security → Open Anyway**. Do not disable Gatekeeper globally.
 
-On macOS, the release is a command-line binary rather than an application. If
-Gatekeeper blocks it, verify the release checksum, attempt to run it once, then
-approve that individual binary under **System Settings → Privacy & Security →
-Open Anyway**. Do not disable Gatekeeper globally.
+## 1. Tailscale policy
 
-## Step 1: Tailscale policy
+The wizard displays [`tailscale-policy.hujson`](tailscale-policy.hujson).
 
-The wizard displays [`tailscale-policy.hujson`](tailscale-policy.hujson) and
-opens the Tailscale Access Controls page.
-
-Merge the entries into the corresponding existing top-level sections. Do not
-replace unrelated policy:
+Merge the relevant entries into your existing policy:
 
 ```jsonc
 {
   "tagOwners": {
     "tag:chatgpt-ssh": ["autogroup:admin"],
-    "tag:chatgpt-managed": ["autogroup:admin"],
+    "tag:chatgpt-managed": ["autogroup:admin"]
   },
-
   "grants": [
     {
       "src": ["tag:chatgpt-ssh"],
       "dst": ["tag:chatgpt-managed"],
-      "ip": ["tcp:22"],
-    },
+      "ip": ["tcp:22"]
+    }
   ],
-
   "ssh": [
     {
       "action": "accept",
       "src": ["tag:chatgpt-ssh"],
       "dst": ["tag:chatgpt-managed"],
-      "users": ["chatgpt"],
-    },
-  ],
+      "users": ["chatgpt"]
+    }
+  ]
 }
 ```
 
-The network grant permits only TCP/22 from the gateway tag to managed targets.
-The SSH rule permits only the dedicated local `chatgpt` account. The policy
-file also contains commented optional rules for your own Tailscale login. Enable
-both optional human rules when your existing policy does not already permit the
-manual `ssh chatgpt+password@...` verification; use `check` mode for the human
-SSH rule.
+The network grant permits the gateway identity to reach managed targets on TCP/22. The SSH rule permits the dedicated `chatgpt` OS account.
 
-Tailscale access rules are additive. An existing wildcard grant can still give
-the gateway tag broader reach, so review any existing allow-all rules rather
-than assuming the narrow rule subtracts access.
+Tailscale rules are additive. Existing broad grants can widen effective reachability, so review the rest of the policy too.
 
-## Step 2: Prepare a Linux target
+## 2. Prepare a Linux target
 
-Pass an existing administrator SSH destination to the wizard:
+Using an existing administrator SSH path:
 
 ```bash
 ./bootstrap --target ubuntu@server.example
 ```
 
-To let the MCP `service_logs` tool read the system journal where supported:
+To grant the dedicated account journal-read membership for `service_logs`:
 
 ```bash
 ./bootstrap --target ubuntu@server.example --with-journal
 ```
 
-The wizard copies `scripts/bootstrap-target.sh` to a temporary path, runs it
-through `sudo`, and removes the temporary copy. The target helper:
+The helper:
 
-- Creates `chatgpt` only when it does not already exist.
-- Uses `/home/chatgpt` and `/bin/bash`.
-- Does not set a Linux password.
-- Optionally adds the user to `systemd-journal`, falling back to `adm` when
-  appropriate.
-- Runs `tailscale set --ssh`.
-- Prints the target's Tailscale IPv4 address and next steps.
+- creates `chatgpt` only if missing;
+- uses `/home/chatgpt` and `/bin/bash`;
+- does not set a Linux password;
+- optionally adds journal-read membership;
+- runs `tailscale set --ssh`;
+- prints the target's Tailscale address and next steps.
 
-You can also run the target helper manually:
+You can run it directly on a target:
 
 ```bash
-scp scripts/bootstrap-target.sh ubuntu@server:/tmp/bootstrap-target.sh
-ssh -t ubuntu@server 'sudo bash /tmp/bootstrap-target.sh --with-journal'
+sudo ./scripts/bootstrap-target.sh --with-journal
 ```
 
-Read-only target verification:
+Read-only verification:
 
 ```bash
 sudo ./scripts/bootstrap-target.sh --check --with-journal
 ```
 
-After preparing the target, assign `tag:chatgpt-managed` in the Tailscale
-**Machines** page. Do not apply this tag to a human laptop; a Tailscale tag
-replaces the machine's user identity.
+Then apply `tag:chatgpt-managed` to the target in Tailscale Machines.
 
-Test with the target's Tailscale IP:
+Manual Tailscale SSH compatibility test:
 
 ```bash
 ssh chatgpt+password@100.x.y.z
 ```
 
-Enter any non-empty value at the password prompt. The `+password` compatibility
-suffix still uses Tailscale identity; it does not authenticate against a Linux
-password. Verify:
+Enter any non-empty value at the password prompt. The suffix still uses Tailscale identity; it does not authenticate against a Linux password.
+
+Verify:
 
 ```bash
 whoami
@@ -184,61 +150,45 @@ id
 
 `whoami` should return `chatgpt`.
 
-## Step 3: Enroll the embedded gateway node
+## 3. Enroll the embedded gateway
 
-The gateway process creates a separate Tailscale node named
-`chatgpt-ssh-gateway`. It is independent of the normal Tailscale client on your
-Mac or server.
+The gateway creates a separate Tailscale node named `chatgpt-ssh-gateway` by default. It is distinct from the ordinary Tailscale client running on the same machine.
 
-For the first setup, generate a Tailscale auth key with:
+For first setup, create a one-off Tailscale auth key carrying:
 
-- Tag: `tag:chatgpt-ssh`
-- Reusable: off
-- Ephemeral: off
-- Pre-approved: on when device approval is enabled
-- A short key lifetime is sufficient
+```text
+tag:chatgpt-ssh
+```
 
-The wizard securely prompts for the `tskey-auth-...` value and stores it in the
-gitignored `.env` file with mode `0600`. Alternatively, supply a Tailscale OAuth
-client secret with permission to create auth keys carrying the same tag.
+A non-reusable, non-ephemeral, short-lived key is appropriate. If device approval is enabled, pre-approve as appropriate for your environment.
 
-On the first successful start, `tsnet` persists a node identity under:
+The wizard stores the enrollment credential in the gitignored `.env` file with mode `0600` where supported. It can alternatively use a Tailscale OAuth client capable of creating auth keys with the required tag.
+
+After successful enrollment, persistent node state lives under:
 
 ```text
 data/tsnet
 ```
 
-Subsequent starts reuse that identity and do not need the one-off auth key. Once
-you have confirmed a restart succeeds, you may clear the consumed key from
-`.env`:
+The gateway reuses that identity on restart. After confirming restarts work, a consumed one-off key can be cleared from `.env`:
 
 ```dotenv
 TS_AUTHKEY=
 ```
 
-Do not delete `data/tsnet` unless you intend to register a replacement gateway
-node with a new enrollment credential.
+Do not delete `data/tsnet` unless you intend to replace the gateway's Tailscale identity.
 
-## Step 4: Configure OpenAI Secure MCP Tunnel
+## 4. Configure OpenAI Secure MCP Tunnel
 
-The wizard asks for:
+The wizard asks for the tunnel ID and the runtime credential used by `tunnel-client`.
 
-- `CONTROL_PLANE_TUNNEL_ID`: the `tunnel_...` identifier from OpenAI Platform.
-- `CONTROL_PLANE_API_KEY`: a Runtime API key whose principal has Tunnels
-  **Read** and **Use**.
-
-The runtime key is not a model API key used by the MCP gateway. It authenticates
-`tunnel-client` to OpenAI's tunnel control plane.
-
-The values are stored locally in:
+They are stored only in the gitignored local file:
 
 ```text
 .env.tunnel
 ```
 
-That file is gitignored and set to mode `0600`.
-
-The wizard creates a named profile using the HTTP/no-auth starter:
+The profile is created with the private MCP endpoint and a separate health listener:
 
 ```bash
 tunnel-client init \
@@ -249,46 +199,45 @@ tunnel-client init \
   --health-listen-addr 127.0.0.1:8081
 ```
 
-The explicit `8081` health listener avoids the common collision where both the
-MCP gateway and `tunnel-client` try to bind `127.0.0.1:8080`.
-
-If the profile already exists and matches, the wizard reuses it. To intentionally
-replace a mismatched profile:
+If a profile already matches, it is reused. To intentionally recreate a mismatched profile:
 
 ```bash
 ./bootstrap --reconfigure-tunnel
 ```
 
-The old YAML file is backed up with a UTC timestamp before replacement.
+The existing profile is backed up before replacement.
 
-## Step 5: Run both processes
+## 5. Start TetherBound
 
-After bootstrap:
+### Bounded mode
+
+```bash
+make up
+```
+
+or:
 
 ```bash
 ./scripts/run-local.sh
 ```
 
-This command:
+### Operator mode
 
-1. Loads `.env` and `.env.tunnel`.
-2. Reuses an already healthy gateway when present; otherwise builds and starts
-   `bin/gateway`.
-3. Waits for `http://127.0.0.1:8080/readyz`.
-4. Reuses an already healthy tunnel client when present; otherwise starts the
-   configured profile.
-5. Waits for `http://127.0.0.1:8081/readyz`.
-6. Prints the local admin UI URL.
-7. On Ctrl-C, stops only the processes it started.
+Operator mode is an explicit local design-partner feature:
 
-Logs are written to:
-
-```text
-data/logs/gateway.log
-data/logs/tunnel-client.log
+```bash
+make operator-up
 ```
 
-Health and status URLs:
+The default lease is one hour. A shorter lease can be supplied for testing:
+
+```bash
+OPERATOR_LEASE_DURATION=30m make operator-up
+```
+
+If a gateway is already running, Operator startup fails rather than reusing a process whose access mode is ambiguous.
+
+Status endpoints:
 
 ```text
 Gateway health:       http://127.0.0.1:8080/healthz
@@ -298,16 +247,28 @@ Tunnel readiness:     http://127.0.0.1:8081/readyz
 Tunnel admin UI:      http://127.0.0.1:8081/ui
 ```
 
-## Step 6: Add it to ChatGPT
+Local logs:
 
-While both local processes are healthy:
+```text
+data/logs/gateway.log
+data/logs/tunnel-client.log
+```
 
-1. Enable developer mode in ChatGPT web.
-2. Open **Plugins**.
-3. Select the plus button and create a developer app.
-4. Choose **Tunnel** and select the tunnel ID configured above.
-5. Scan tools.
-6. Confirm these tools appear:
+Raw Operator commands and remote output are not intentionally written to the gateway audit log.
+
+## 6. Create the ChatGPT custom MCP app
+
+Current ChatGPT terminology is **Apps**, not the historical Plugins name used by this repository.
+
+With the gateway and Secure MCP Tunnel healthy:
+
+1. enable developer mode in ChatGPT web if your plan/workspace requires it;
+2. open **Settings → Apps** and choose **Create** (the exact placement may vary as the beta UI evolves);
+3. configure the custom MCP app using the Secure MCP Tunnel connection;
+4. scan/refresh the tool definitions;
+5. confirm the expected tools appear.
+
+Bounded mode should expose:
 
 ```text
 list_hosts
@@ -319,16 +280,23 @@ service_logs
 process_list
 ```
 
+An active Operator-mode gateway additionally exposes:
+
+```text
+operator_exec
+```
+
 A useful first prompt is:
 
 ```text
-Using Tailscale SSH Inspector, list the hosts I am allowed to inspect.
+Using TetherBound, list the hosts I am allowed to inspect.
 ```
+
+OpenAI currently notes that ChatGPT does not connect directly to a local MCP server; Secure MCP Tunnel is the supported path for a private-network/on-premises/developer-machine MCP server. Write/modify MCP capabilities such as Operator mode may also be subject to ChatGPT plan/workspace controls and confirmation behavior.
 
 ## Non-interactive bootstrap
 
-For automation, provide values through the environment and explicitly accept or
-skip the manual policy step:
+For automation, provide values through the environment and explicitly accept or skip the manual policy step:
 
 ```bash
 export TS_AUTHKEY='tskey-auth-...'
@@ -339,9 +307,9 @@ export BOOTSTRAP_ACCEPT_POLICY=1
 ./bootstrap --non-interactive --skip-target --no-open
 ```
 
-Secrets are still written only to the gitignored, mode-`0600` local environment
-files. Use an external secrets manager instead when deploying this as a shared
-or production service.
+Those are placeholders. Never commit live values.
+
+For shared or production deployment, prefer an external secret manager over long-lived plaintext environment files.
 
 ## Options
 
@@ -353,68 +321,65 @@ or production service.
 --profile NAME          Select the tunnel-client profile name
 --reconfigure-tunnel    Back up and recreate a mismatched profile
 --skip-policy           Skip the policy walkthrough
---skip-target           Skip target preparation and tagging walkthrough
---no-open               Do not open browser pages
+--skip-target           Skip target preparation/tagging walkthrough
+--no-open               Do not open admin-console pages
 ```
 
 ## Troubleshooting
 
-### `.env: no such file or directory`
+### `.env` is missing
 
-Run `./bootstrap`. It creates `.env` from `config/example.env` without replacing
-an existing file.
+Run:
+
+```bash
+./bootstrap
+```
 
 ### SSH asks for a password
 
-First make sure the target has Tailscale SSH enabled:
+Ensure the target has Tailscale SSH enabled:
 
 ```bash
 sudo tailscale set --ssh
 ```
 
-Then connect over the Tailscale IP using the compatibility suffix:
+Then use:
 
 ```bash
 ssh chatgpt+password@100.x.y.z
 ```
 
-Enter any non-empty value. Do not set a Linux password for `chatgpt`.
+Enter any non-empty value. Do not set a Linux password for `chatgpt` merely for this test.
 
-### `bind: address already in use` on `127.0.0.1:8080`
+### Port 8080 is already in use
 
-Port `8080` belongs to the MCP gateway. The generated tunnel profile uses
-`127.0.0.1:8081` for `tunnel-client` health and its admin UI. Rerun with
-`--reconfigure-tunnel` if an older profile still uses `8080`.
+`8080` belongs to the MCP gateway. The generated tunnel profile uses `8081` for tunnel health/admin UI. Rerun with `--reconfigure-tunnel` if an old profile still conflicts.
 
-### Tunnel profile file is missing
-
-Run `./bootstrap`. It creates:
-
-```text
-~/.config/tunnel-client/tailscale-ssh.yaml
-```
-
-or the corresponding path under `XDG_CONFIG_HOME`.
-
-### `list_hosts` returns no targets
+### No hosts appear
 
 Check that:
 
-- The target is online.
-- The target carries `tag:chatgpt-managed`.
-- `tailscale set --ssh` has been run on the target.
-- The gateway appears as a separate machine carrying `tag:chatgpt-ssh`.
-- Both the network grant and SSH rule are in the tailnet policy.
-- The target is not a shared-to node, unless you intentionally enabled
-  `TS_ALLOW_SHARED_NODES=true`.
+- the target is online;
+- it carries `tag:chatgpt-managed` or matches `TS_ALLOWED_HOSTS`;
+- `tailscale set --ssh` has been run;
+- the gateway appears as its separate `tag:chatgpt-ssh` node;
+- both Tailscale network and SSH policy permit the path;
+- the target is not shared-to unless `TS_ALLOW_SHARED_NODES=true` was deliberately enabled.
 
 ### Service logs are denied
 
-Rerun the target helper with journal access:
+Grant journal-read access and start a new SSH session:
 
 ```bash
 ./bootstrap --target ADMIN@HOST --with-journal
 ```
 
-Then establish a new SSH session so the supplemental group membership is
-applied.
+### Operator tool does not appear
+
+Stop any existing gateway, then start a fresh Operator lease:
+
+```bash
+make operator-up
+```
+
+Refresh/rescan the custom MCP app's tools in ChatGPT. Operator mode is intentionally not persisted in the example `.env`.
