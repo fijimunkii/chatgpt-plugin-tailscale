@@ -36,7 +36,7 @@ Operator mode is **off by default** and is intentionally not persisted in `confi
 For a local design-partner session:
 
 ```bash
-OPERATOR_MODE=true make up
+make operator-up
 ```
 
 The default lease is one hour. The tool refuses new commands after the lease expires.
@@ -44,14 +44,16 @@ The default lease is one hour. The tool refuses new commands after the lease exp
 An optional process-local override can change the lease:
 
 ```bash
-OPERATOR_MODE=true OPERATOR_LEASE_DURATION=30m make up
+OPERATOR_LEASE_DURATION=30m make operator-up
 ```
 
 Accepted lease duration is 5 minutes through 24 hours.
 
+`make operator-up` fails closed if a gateway is already healthy at the configured MCP address. Stop the existing bounded gateway first, then launch Operator mode. This prevents the launcher from silently reusing a bounded process that does not expose `operator_exec`.
+
 ### Current v0.1 lease caveat
 
-The lease is tied to one gateway process start. If an operator deliberately starts a new gateway process again with `OPERATOR_MODE=true`, that new process receives a fresh lease. For the design-partner preview, do not persist `OPERATOR_MODE=true` in `.env` or a service manager. A later release should use an absolute locally issued lease so automatic process restarts cannot extend access.
+The lease is tied to one gateway process start. If an operator deliberately starts a new gateway process again with Operator mode enabled, that new process receives a fresh lease. For the design-partner preview, do not persist `OPERATOR_MODE=true` in `.env` or a service manager. A later release should use an absolute locally issued lease so automatic process restarts cannot extend access.
 
 ## What remains bounded
 
