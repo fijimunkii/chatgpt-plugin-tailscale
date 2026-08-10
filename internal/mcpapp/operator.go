@@ -62,10 +62,10 @@ type operatorExecInput struct {
 
 type operatorExecOutput struct {
 	commandOutput
-	OperatorMode     bool   `json:"operator_mode"`
-	LeaseExpiresAt   string `json:"lease_expires_at"`
+	OperatorMode      bool   `json:"operator_mode"`
+	LeaseExpiresAt    string `json:"lease_expires_at"`
 	PrivilegeBoundary string `json:"privilege_boundary"`
-	OperatorWarning  string `json:"operator_warning"`
+	OperatorWarning   string `json:"operator_warning"`
 }
 
 func (a *App) operatorExec(ctx context.Context, _ *mcp.CallToolRequest, input operatorExecInput) (*mcp.CallToolResult, operatorExecOutput, error) {
@@ -85,10 +85,10 @@ func (a *App) operatorExec(ctx context.Context, _ *mcp.CallToolRequest, input op
 		return nil, operatorExecOutput{}, err
 	}
 	return callResult, operatorExecOutput{
-		commandOutput:      result,
-		OperatorMode:       true,
-		LeaseExpiresAt:     a.operator.ExpiresAt.UTC().Format(time.RFC3339),
-		PrivilegeBoundary:  "configured non-root SSH user; no privilege elevation added by TetherBound",
-		OperatorWarning:    operatorWarning,
+		commandOutput:     result,
+		OperatorMode:      true,
+		LeaseExpiresAt:    a.operator.ExpiresAt.UTC().Format(time.RFC3339),
+		PrivilegeBoundary: "configured non-root SSH user; no privilege elevation added by TetherBound",
+		OperatorWarning:   operatorWarning,
 	}, nil
 }
