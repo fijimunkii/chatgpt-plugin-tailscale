@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fijimunkii/chatgpt-plugin-tailscale/internal/remote"
 	"github.com/fijimunkii/chatgpt-plugin-tailscale/internal/sshx"
@@ -61,7 +62,7 @@ func TestProcessFilterNeverEntersRemoteCommand(t *testing.T) {
 			"2 1 app S 0.5 0.2 9 worker needle-value",
 		}, "\n"),
 	}}
-	app, err := New(fakeCatalog{target: testTarget()}, runner, policy, 200, 100)
+	app, err := New(fakeCatalog{target: testTarget()}, runner, policy, 200, 100, OperatorConfig{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -94,5 +95,54 @@ func TestReadOnlyToolAnnotationsDescribeExternalRead(t *testing.T) {
 	}
 	if tool.Annotations.OpenWorldHint == nil || !*tool.Annotations.OpenWorldHint {
 		t.Fatalf("external interaction must be marked open-world: %+v", tool.Annotations)
+	}
+}
+
+func TestOperatorToolAnnotationsAreDestructive(t *testing.T) {
+	tool := operatorTool()
+	if tool.Annotations == nil || tool.Annotations.ReadOnlyHint || tool.Annotations.IdempotentHint {
+		t.Fatalf("operator annotations should be writable/non-idempotent: %+v", tool.Annotations)
+	}
+	if tool.Annotations.DestructiveHint == nil || !*tool.Annotations.DestructiveHint {
+		t.Fatalf("operator tool must be marked destructive: %+v", tool.Annotations)
+	}
+}
+
+func TestOperatorExecRequiresActiveLocalLease(t *testing.T) {
+	policy, err := remote.NewServicePolicy(nil)
+	if err != nil {
+		t.Fatalf("NewServicePolicy: %v", err)
+	}
+	runner := &recordingRunner{result: sshx.Result{Success: true, ExitCode: 0, Stdout: "ok\n"}}
+	app, err := New(fakeCatalog{target: testTarget()}, runner, policy, 200, 100, OperatorConfig{
+		Enabled:   true,
+		ExpiresAt: time.Now().Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, result, err := app.operatorExec(context.Background(), nil, operatorExecInput{
+		Host:    "app-1",
+		Command: "printf ok",
+		CWD:     "/tmp/work dir",
+	})
+	if err != nil {
+		t.Fatalf("operatorExec: %v", err)
+	}
+	if runner.command.Operation() != "operator_exec" {
+		t.Fatalf("operation = %q", runner.command.Operation())
+	}
+	if !strings.Contains(runner.command.Shell(), "printf ok") || !strings.Contains(runner.command.Shell(), "/tmp/work dir") {
+		t.Fatalf("unexpected operator shell: %q", runner.command.Shell())
+	}
+	if !result.OperatorMode || result.PrivilegeBoundary == "" || result.LeaseExpiresAt == "" {
+		t.Fatalf("unexpected operator result metadata: %+v", result)
+	}
+}
+
+func TestExpiredOperatorLeaseIsRejected(t *testing.T) {
+	cfg := OperatorConfig{Enabled: true, ExpiresAt: time.Now().Add(-time.Minute)}
+	if cfg.validate(time.Now()) == nil {
+		t.Fatal("expected expired operator config to be rejected")
 	}
 }
