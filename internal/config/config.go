@@ -15,20 +15,21 @@ import (
 )
 
 const (
-	defaultListenAddr          = "127.0.0.1:8080"
-	defaultTailscaleHostname   = "chatgpt-ssh-gateway"
-	defaultTailscaleStateDir   = "./data/tsnet"
-	defaultAdvertiseTag        = "tag:chatgpt-ssh"
-	defaultAllowedTag          = "tag:chatgpt-managed"
-	defaultSSHUser             = "chatgpt"
-	defaultDialTimeout         = 10 * time.Second
-	defaultCommandTimeout      = 15 * time.Second
-	defaultTailscaleUpTimeout  = 90 * time.Second
-	defaultShutdownTimeout     = 10 * time.Second
-	defaultMaxOutputBytes      = 256 << 10
-	defaultMaxRequestBodyBytes = 1 << 20
-	defaultMaxLogLines         = 200
-	defaultMaxProcesses        = 100
+	defaultListenAddr             = "127.0.0.1:8080"
+	defaultTailscaleHostname      = "chatgpt-ssh-gateway"
+	defaultTailscaleStateDir      = "./data/tsnet"
+	defaultAdvertiseTag           = "tag:chatgpt-ssh"
+	defaultAllowedTag             = "tag:chatgpt-managed"
+	defaultSSHUser                = "chatgpt"
+	defaultDialTimeout            = 10 * time.Second
+	defaultCommandTimeout         = 15 * time.Second
+	defaultOperatorLeaseDuration  = time.Hour
+	defaultTailscaleUpTimeout     = 90 * time.Second
+	defaultShutdownTimeout        = 10 * time.Second
+	defaultMaxOutputBytes         = 256 << 10
+	defaultMaxRequestBodyBytes    = 1 << 20
+	defaultMaxLogLines            = 200
+	defaultMaxProcesses           = 100
 )
 
 // LookupEnv matches os.LookupEnv and makes configuration parsing testable.
@@ -63,6 +64,9 @@ type Config struct {
 	MaxLogLines     int
 	MaxProcesses    int
 
+	OperatorMode          bool
+	OperatorLeaseDuration time.Duration
+
 	ShutdownTimeout time.Duration
 	LogLevel        slog.Level
 }
@@ -89,6 +93,7 @@ func LoadFrom(lookup LookupEnv) (Config, error) {
 		AllowedServices:        csv(value(lookup, "SSH_ALLOWED_SERVICES", "")),
 		DialTimeout:            defaultDialTimeout,
 		CommandTimeout:         defaultCommandTimeout,
+		OperatorLeaseDuration:  defaultOperatorLeaseDuration,
 		TailscaleUpTimeout:     defaultTailscaleUpTimeout,
 		ShutdownTimeout:        defaultShutdownTimeout,
 		MaxOutputBytes:         defaultMaxOutputBytes,
@@ -111,10 +116,16 @@ func LoadFrom(lookup LookupEnv) (Config, error) {
 	if cfg.AllowSharedNodes, err = boolValue(lookup, "TS_ALLOW_SHARED_NODES", false); err != nil {
 		return Config{}, err
 	}
+	if cfg.OperatorMode, err = boolValue(lookup, "OPERATOR_MODE", false); err != nil {
+		return Config{}, err
+	}
 	if cfg.DialTimeout, err = durationValue(lookup, "SSH_DIAL_TIMEOUT", defaultDialTimeout, time.Second, time.Minute); err != nil {
 		return Config{}, err
 	}
 	if cfg.CommandTimeout, err = durationValue(lookup, "SSH_COMMAND_TIMEOUT", defaultCommandTimeout, time.Second, 2*time.Minute); err != nil {
+		return Config{}, err
+	}
+	if cfg.OperatorLeaseDuration, err = durationValue(lookup, "OPERATOR_LEASE_DURATION", defaultOperatorLeaseDuration, 5*time.Minute, 24*time.Hour); err != nil {
 		return Config{}, err
 	}
 	if cfg.TailscaleUpTimeout, err = durationValue(lookup, "TS_UP_TIMEOUT", defaultTailscaleUpTimeout, 5*time.Second, 5*time.Minute); err != nil {
