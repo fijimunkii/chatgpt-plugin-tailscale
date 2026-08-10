@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Package ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build gateway
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p dist/bin
+          go build -trimpath \
+            -ldflags="-s -w \
+            -X github.com/fijimunkii/chatgpt-plugin-tailscale/internal/version.Version=${GITHUB_REF_NAME} \
+            -X github.com/fijimunkii/chatgpt-plugin-tailscale/internal/version.Commit=${GITHUB_SHA} \
+            -X github.com/fijimunkii/chatgpt-plugin-tailscale/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o dist/bin/gateway ./cmd/gateway
+
+      - name: Assemble self-host bundle
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          NAME="chatgpt-plugin-tailscale-${GITHUB_REF_NAME}-${GOOS}-${GOARCH}"
+          mkdir -p "$NAME/bin"
+          cp dist/bin/gateway "$NAME/bin/gateway"
+          chmod +x "$NAME/bin/gateway"
+          cp bootstrap Makefile LICENSE README.md SECURITY.md SUPPORT.md CHANGELOG.md "$NAME/"
+          cp -R config docs scripts "$NAME/"
+          tar -czf "$NAME.tar.gz" "$NAME"
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-plugin-tailscale-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: chatgpt-plugin-tailscale-*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub prerelease
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download bundles
+        uses: actions/download-artifact@v5
+        with:
+          pattern: chatgpt-plugin-tailscale-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.tar.gz > SHA256SUMS
+
+      - name: Create prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          dist/*.tar.gz dist/SHA256SUMS
+          --repo "$GITHUB_REPOSITORY"
+          --title "$GITHUB_REF_NAME"
+          --generate-notes
+          --prerelease
+          --verify-tag

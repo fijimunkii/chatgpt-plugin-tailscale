@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/fijimunkii/chatgpt-plugin-tailscale/security
+    about: Do not report vulnerabilities in public issues. Follow SECURITY.md and use private reporting when available.
+  - name: TetherBound product site
+    url: https://tetherbound.dev
+    about: Product overview, security model, and roadmap context.

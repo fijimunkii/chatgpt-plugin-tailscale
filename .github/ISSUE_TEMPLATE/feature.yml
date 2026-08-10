@@ -1,0 +1,51 @@
+name: Feature request
+description: Propose a Community capability or improvement
+title: "[Feature] "
+labels: []
+assignees: []
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Describe the workflow/problem rather than only the implementation you want.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Bounded tools
+        - Operator mode
+        - Tailscale integration
+        - Bootstrap / installation
+        - Linux
+        - Windows Agent
+        - macOS Agent
+        - MCP client compatibility
+        - Security / policy
+        - Packaging / releases
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Security boundary impact
+      description: What new access, credentials, network reachability, privilege, or data exposure would this require?
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Sensitive-data check
+      options:
+        - label: I have not included credentials, private keys, tokens, customer data, or private infrastructure details that should not be public.
+          required: true

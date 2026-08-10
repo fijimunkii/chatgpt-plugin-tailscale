@@ -1,0 +1,56 @@
+name: Self-hosting help
+description: Ask for help installing or operating TetherBound Community
+title: "[Self-hosting] "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Run `./bootstrap --check` first. **Do not paste credentials, tokens, private keys, tsnet state, customer data, or secret-bearing logs.**
+  - type: dropdown
+    id: step
+    attributes:
+      label: Where are you stuck?
+      options:
+        - Tailscale policy or tags
+        - Linux target setup
+        - Gateway enrollment/startup
+        - Secure MCP Tunnel
+        - ChatGPT custom MCP app / tool scan
+        - Bounded tool execution
+        - Operator mode
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: gateway
+    attributes:
+      label: Gateway OS and architecture
+      placeholder: macOS arm64 / Linux amd64
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Target OS
+      placeholder: Ubuntu 24.04
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What have you tried?
+      description: Include redacted commands/errors that are relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted bootstrap diagnostics
+      description: Paste only the non-sensitive lines needed to understand the problem.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Sensitive-data check
+      options:
+        - label: I removed credentials, tokens, private keys, tsnet state, customer data, private identifiers I do not want public, and secret-bearing logs.
+          required: true
