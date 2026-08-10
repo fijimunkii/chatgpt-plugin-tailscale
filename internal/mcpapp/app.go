@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/fijimunkii/chatgpt-plugin-tailscale/internal/remote"
 	"github.com/fijimunkii/chatgpt-plugin-tailscale/internal/sshx"
@@ -22,7 +23,10 @@ type Catalog interface {
 	Resolve(context.Context, string) (tailnet.Target, error)
 }
 
-// Runner executes one prebuilt read-only operation.
+// Runner executes one remote operation after the MCP layer has resolved and
+// admitted the target. Fixed inspection tools pass opaque read-only commands;
+// Operator mode can deliberately pass an arbitrary-shell Command while its
+// locally configured lease is active.
 type Runner interface {
 	Run(context.Context, tailnet.Target, string, remote.Command) (sshx.Result, error)
 }
@@ -33,9 +37,10 @@ type App struct {
 	services     remote.ServicePolicy
 	maxLogLines  int
 	maxProcesses int
+	operator     OperatorConfig
 }
 
-func New(catalog Catalog, runner Runner, services remote.ServicePolicy, maxLogLines, maxProcesses int) (*App, error) {
+func New(catalog Catalog, runner Runner, services remote.ServicePolicy, maxLogLines, maxProcesses int, operator OperatorConfig) (*App, error) {
 	if catalog == nil {
 		return nil, errors.New("tailnet catalog is required")
 	}
@@ -45,12 +50,16 @@ func New(catalog Catalog, runner Runner, services remote.ServicePolicy, maxLogLi
 	if maxLogLines <= 0 || maxProcesses <= 0 {
 		return nil, errors.New("result limits must be positive")
 	}
+	if err := operator.validate(time.Now()); err != nil {
+		return nil, err
+	}
 	return &App{
 		catalog:      catalog,
 		runner:       runner,
 		services:     services,
 		maxLogLines:  maxLogLines,
 		maxProcesses: maxProcesses,
+		operator:     operator,
 	}, nil
 }
 
@@ -101,6 +110,10 @@ func (a *App) Server(version string) *mcp.Server {
 		"Read a bounded process list",
 		"Runs a fixed process listing on one allowed Linux host. An optional query is applied as a literal case-insensitive filter inside the gateway and is never sent to the remote shell.",
 	), a.processList)
+
+	if a.operator.Enabled {
+		mcp.AddTool(server, operatorTool(), a.operatorExec)
+	}
 
 	return server
 }
