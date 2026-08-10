@@ -1,6 +1,8 @@
 name: TetherBound Cloud early access
-about: Share a concrete use case and help validate the hosted product
+description: Share a concrete use case and help validate the hosted product
+title: "[Cloud interest] "
 labels: []
+assignees: []
 body:
   - type: markdown
     attributes:
